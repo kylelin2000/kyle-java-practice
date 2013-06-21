@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?> 
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+
+
+<hibernate-mapping package="com.island.entity"> 
+    <!--類別名稱與表格名稱映射-->
+   
+	<class name="Person" table="person">
+        <id name="id" column="ID" unsaved-value= "null"> 
+            <generator class="native"/> 
+        </id> 	
+        <property name="lastName" column="LAST_NAME" type="java.lang.String"/> 
+        <property name="firstName" column="FIRST_NAME" type="java.lang.String"/> 
+         <set name="roleRelationships" table="person_roles" lazy="false" cascade="all,delete-orphan" inverse="false" > 
+            <key column="PERSON_ID" />
+            <one-to-many class="RoleRelationship"  />
+        </set>
+    </class>
+
+    <class name="Role" table="person_role"> 
+        <!--id與主鍵映射-->
+        <id name="id" column="ID"> 
+            <generator class="identity" />
+        </id> 	
+        <!--類別屬性與表格欄位的映射-->
+        <property name="name" column="ROLE_NAME"/>  
+    </class> 
+ 
+ 	<class name="RoleRelationship"  table="person_roles">  		
+        <id name="personRolesId" column="person_roles_id"> 
+            <generator class="identity" />
+        </id> 
+        <!--類別屬性與表格欄位的映射-->
+         <property name="personRoleId" column="PERSON_ROLE_ID" /> 
+         <property name="roleName" column="ROLE_NAME" />              
+    </class>
+</hibernate-mapping>
