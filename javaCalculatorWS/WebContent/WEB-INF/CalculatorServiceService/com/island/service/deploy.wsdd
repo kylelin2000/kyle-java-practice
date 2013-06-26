@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- Use this file to deploy some handlers/chains and services      --><!-- Two ways to do this:                                           --><!--   java org.apache.axis.client.AdminClient deploy.wsdd          --><!--      after the axis server is running                          --><!-- or                                                             --><!--   java org.apache.axis.utils.Admin client|server deploy.wsdd   --><!--      from the same directory that the Axis engine runs         --><deployment xmlns="http://xml.apache.org/axis/wsdd/" xmlns:java="http://xml.apache.org/axis/wsdd/providers/java">
+
+  <!-- Services from CalculatorServiceService WSDL service -->
+
+  <service name="CalculatorService" provider="java:RPC" style="wrapped" use="literal">
+      <parameter name="wsdlTargetNamespace" value="http://service.island.com"/>
+      <parameter name="wsdlServiceElement" value="CalculatorServiceService"/>
+      <parameter name="schemaQualified" value="http://service.island.com"/>
+      <parameter name="wsdlServicePort" value="CalculatorService"/>
+      <parameter name="className" value="com.island.service.CalculatorService"/>
+      <parameter name="wsdlPortType" value="CalculatorService"/>
+      <parameter name="typeMappingVersion" value="1.2"/>
+      <operation xmlns:operNS="http://service.island.com" xmlns:retNS="http://service.island.com" xmlns:rtns="http://www.w3.org/2001/XMLSchema" name="add" qname="operNS:add" returnQName="retNS:addReturn" returnType="rtns:int" soapAction="">
+        <parameter xmlns:pns="http://service.island.com" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:value1" type="tns:int"/>
+        <parameter xmlns:pns="http://service.island.com" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:value2" type="tns:int"/>
+      </operation>
+      <operation xmlns:operNS="http://service.island.com" xmlns:retNS="http://service.island.com" xmlns:rtns="http://www.w3.org/2001/XMLSchema" name="subtract" qname="operNS:subtract" returnQName="retNS:subtractReturn" returnType="rtns:int" soapAction="">
+        <parameter xmlns:pns="http://service.island.com" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:value1" type="tns:int"/>
+        <parameter xmlns:pns="http://service.island.com" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:value2" type="tns:int"/>
+      </operation>
+      <operation xmlns:operNS="http://service.island.com" xmlns:retNS="http://service.island.com" xmlns:rtns="http://www.w3.org/2001/XMLSchema" name="divide" qname="operNS:divide" returnQName="retNS:divideReturn" returnType="rtns:int" soapAction="">
+        <parameter xmlns:pns="http://service.island.com" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:value1" type="tns:int"/>
+        <parameter xmlns:pns="http://service.island.com" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:value2" type="tns:int"/>
+      </operation>
+      <operation xmlns:operNS="http://service.island.com" xmlns:retNS="http://service.island.com" xmlns:rtns="http://www.w3.org/2001/XMLSchema" name="multiply" qname="operNS:multiply" returnQName="retNS:multiplyReturn" returnType="rtns:int" soapAction="">
+        <parameter xmlns:pns="http://service.island.com" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:value1" type="tns:int"/>
+        <parameter xmlns:pns="http://service.island.com" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:value2" type="tns:int"/>
+      </operation>
+      <parameter name="allowedMethods" value="subtract multiply divide add"/>
+
+  </service>
+</deployment>
