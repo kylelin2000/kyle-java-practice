@@ -17,6 +17,10 @@ public class PutSampleData {
 		conf.set("hbase.zookeeper.quorum", "hdp2-n1");
 		conf.set("hbase.zookeeper.property.clientPort", "2181");
 		conf.set("zookeeper.znode.parent", "/hbase-secure");
+		//conf.set("hbase.master.keytab.file", "/home/kyle/keytabs/hbase.headless.keytab");
+		//conf.set("hbase.master.kerberos.principal", "hbase@LOCALDOMAIN");
+		//conf.set("hbase.regionserver.kerberos.principal", "hbase@LOCALDOMAIN");
+		//conf.set("hbase.regionserver.keytab.file", "/home/kyle/keytabs/hbase.headless.keytab");
 
 		String tableName = "test";
 		String columnFamily = "cf";

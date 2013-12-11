@@ -13,12 +13,12 @@ import org.apache.hadoop.hbase.client.Scan;
 public class ScanData {
 	public static void main(String[] args) throws IOException {
 		Configuration conf = HBaseConfiguration.create();
-		conf.set("hbase.zookeeper.quorum", "sandbox");
+		conf.set("hbase.zookeeper.quorum", "hdp2-n1");
 		conf.set("hbase.zookeeper.property.clientPort", "2181");
-		conf.set("zookeeper.znode.parent", "/hbase-unsecure");
+		conf.set("zookeeper.znode.parent", "/hbase-secure");
 
-		String tableName = "test";
-		String columnFamily = "cf";
+		String tableName = "ambarismoketest";
+		String columnFamily = "family";
 
         HTable table = new HTable(conf, tableName);
         Scan s = new Scan();
