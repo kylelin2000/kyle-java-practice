@@ -13,17 +13,12 @@ import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ConvertTextToSequence extends
     Mapper<LongWritable, Text, LongWritable, Text> {
-
-  @Override
-  protected void map(LongWritable key, Text value,
-      Mapper<LongWritable, Text, LongWritable, Text>.Context context)
-      throws IOException, InterruptedException {
-
-    context.write(key, value);
-  }
+  static final Logger logger = LoggerFactory.getLogger(ConvertTextToSequence.class);
 
   public static void main(String[] args) throws IOException,
       InterruptedException, ClassNotFoundException {
@@ -31,6 +26,10 @@ public class ConvertTextToSequence extends
       System.out.println("Examples: executablejarfile /tmp/install.log /tmp/install.log.seq");
       return;
     }
+    logger.info("kyle: info");
+    logger.debug("kyle: debug");
+    logger.warn("kyle: warn");
+    logger.trace("kyle: trace");
     Configuration conf = new Configuration();
     Job job = new Job(conf);
     job.setJobName("Convert Text");
