@@ -20,12 +20,8 @@ public class ConvertTextToSequence extends
     Mapper<LongWritable, Text, LongWritable, Text> {
   static final Logger logger = LoggerFactory.getLogger(ConvertTextToSequence.class);
 
-  public static void main(String[] args) throws IOException,
+  public void mainRun(String inputPath, String outputPath) throws IOException,
       InterruptedException, ClassNotFoundException {
-    if (args.length != 2) {
-      System.out.println("Examples: executablejarfile /tmp/install.log /tmp/install.log.seq");
-      return;
-    }
     logger.info("kyle: info");
     logger.debug("kyle: debug");
     logger.warn("kyle: warn");
@@ -46,8 +42,8 @@ public class ConvertTextToSequence extends
     job.setOutputFormatClass(SequenceFileOutputFormat.class);
     job.setInputFormatClass(TextInputFormat.class);
 
-    FileInputFormat.addInputPath(job, new Path(args[0]));
-    FileOutputFormat.setOutputPath(job, new Path(args[1]));
+    FileInputFormat.addInputPath(job, new Path(inputPath));
+    FileOutputFormat.setOutputPath(job, new Path(outputPath));
 
     // submit and wait for completion
     job.waitForCompletion(true);
