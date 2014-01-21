@@ -2,6 +2,7 @@ package idv.kyle;
 
 import idv.kyle.hdfs.ConvertTextToSequence;
 import idv.kyle.hdfs.SequenceFileReadDemo;
+import idv.kyle.hdfs.SequenceFileWriter;
 
 public class HadoopTool {
 
@@ -21,11 +22,18 @@ public class HadoopTool {
           ConvertTextToSequence tool = new ConvertTextToSequence();
           tool.mainRun(args[1], args[2]);
         }
-      } else if ("seqFileReadDemo".equals(args[0])) {
+      } else if ("readSeqFile".equals(args[0])) {
         if (args.length != 2) {
           throw new IllegalArgumentException("Incorrect number of arguments");
         } else {
           SequenceFileReadDemo tool = new SequenceFileReadDemo();
+          tool.mainRun(args[1]);
+        }
+      } else if ("writeSeqFileToLocal".equals(args[0])) {
+        if (args.length != 2) {
+          throw new IllegalArgumentException("Incorrect number of arguments");
+        } else {
+          SequenceFileWriter tool = new SequenceFileWriter();
           tool.mainRun(args[1]);
         }
       }

@@ -22,10 +22,6 @@ public class ConvertTextToSequence extends
 
   public void mainRun(String inputPath, String outputPath) throws IOException,
       InterruptedException, ClassNotFoundException {
-    logger.info("kyle: info");
-    logger.debug("kyle: debug");
-    logger.warn("kyle: warn");
-    logger.trace("kyle: trace");
     Configuration conf = new Configuration();
     Job job = new Job(conf);
     job.setJobName("Convert Text");
