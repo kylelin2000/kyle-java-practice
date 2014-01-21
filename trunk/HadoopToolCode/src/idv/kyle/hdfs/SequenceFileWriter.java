@@ -9,7 +9,6 @@ import javax.security.auth.callback.NameCallback;
 import javax.security.auth.callback.PasswordCallback;
 import javax.security.auth.callback.UnsupportedCallbackException;
 import javax.security.auth.login.LoginContext;
-import javax.security.auth.login.LoginException;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -19,30 +18,33 @@ import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
 
-public class SequenceFileWriteDemo {
+public class SequenceFileWriter {
 
   private static final String[] DATA = { "One, two, buckle my shoe",
       "Three, four, shut the door", "Five, six, pick up sticks",
       "Seven, eight, lay them straight", "Nine, ten, a big fat hen" };
 
-  public static void main(String[] args) throws IOException,
-      InterruptedException, LoginException {
-    System.setProperty("sun.security.krb5.debug", "true");
-    System.setProperty("java.security.krb5.realm", "LOCALDOMAIN");
-    System.setProperty("java.security.krb5.kdc", "hdp2-n1.localdomain");
-    System.setProperty("javax.security.auth.useSubjectCredsOnly", "false");
-    System.setProperty("java.security.auth.login.config", "/Users/kyle/jaas.conf");
-    LoginContext context =
-        new LoginContext("kyle", new KerberosClientCallbackHandler("kyle",
-            "novirus"));
-    context.login();
+  public void mainRun(String filePath) throws Exception {
+    System.out.println("init to write sequence file");
+    /*
+     * System.setProperty("sun.security.krb5.debug", "true");
+     * System.setProperty("java.security.krb5.realm", "LOCALDOMAIN");
+     * System.setProperty("java.security.krb5.kdc", "hdp2-n1.localdomain");
+     * System.setProperty("javax.security.auth.useSubjectCredsOnly", "false");
+     * System.setProperty("java.security.auth.login.config",
+     * "/Users/kyle/jaas.conf"); LoginContext context = new LoginContext("kyle",
+     * new KerberosClientCallbackHandler("kyle", "novirus")); context.login();
+     */
 
     Configuration conf = new Configuration();
-    conf.set("fs.defaultFS", "hdfs://10.1.192.76:8020");
 
-    String uri = "/tmp/seq/file1";
-    FileSystem fs = FileSystem.get(URI.create(uri), conf);
-    Path path = new Path(uri);
+    FileSystem fs = null;
+    if (filePath.startsWith("hdfs://")) {
+      fs = FileSystem.get(URI.create(filePath), conf);
+    } else if (filePath.startsWith("file://")) {
+      fs = FileSystem.getLocal(conf).getRawFileSystem();
+    }
+    Path path = new Path(filePath);
     IntWritable key = new IntWritable();
     Text value = new Text();
     SequenceFile.Writer writer = null;
@@ -53,12 +55,17 @@ public class SequenceFileWriteDemo {
       for (int i = 0; i < 100; i++) {
         key.set(100 - i);
         value.set(DATA[i % DATA.length]);
-        System.out.printf("[% s]\t% s\t% s\n", writer.getLength(), key, value);
+        System.out.println("writer len: " + writer.getLength() + ", key: " + key + ", value: " + value);
         writer.append(key, value);
       }
     } finally {
       IOUtils.closeStream(writer);
     }
+  }
+
+  public static void main(String[] args) throws Exception {
+    SequenceFileWriter worker = new SequenceFileWriter();
+    worker.mainRun("file:///tmp/test.seq");
   }
 
   private static class KerberosClientCallbackHandler implements CallbackHandler {
