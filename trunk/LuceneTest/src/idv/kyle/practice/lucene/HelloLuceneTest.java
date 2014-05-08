@@ -23,6 +23,6 @@ public class HelloLuceneTest {
 	@Test
 	public void TestSearcherSimple() {
 		HelloLucene hLucene = new HelloLucene();
-		hLucene.searcherSimple("/tmp/index");
+		hLucene.searcherSimple("/tmp/idx1");
 	}
 }

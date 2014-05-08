@@ -82,10 +82,12 @@ public class HelloLucene {
 	}
 	
 	public void indexing(IndexWriter writer) throws IOException {
-		for (int i = 1; i <= 26; i++) {
+		for (int i = 1; i <= 10000000; i++) {
 			Document doc = new Document();
 			doc.add(new StringField("id", "testid_" + i, Field.Store.YES));
 			doc.add(new StringField("name", "name_" + i, Field.Store.YES));
+			doc.add(new StringField("user", "user_" + i, Field.Store.YES));
+			doc.add(new StringField("location", "location_" + i, Field.Store.YES));
 			doc.add(new StringField("_version", "1", Field.Store.YES));
 			Field uid = new StringField("_uid", "test#" + i, Field.Store.YES);
 			//uid.setStringValue("uf#" + UUID.randomUUID().toString());
