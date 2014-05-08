@@ -28,27 +28,26 @@ public class BulkIndex {
 				.put("cluster.name", "escluster").build();
 		Client client = new TransportClient(settings)
 				.addTransportAddress(
-						new InetSocketTransportAddress("192.168.56.102", 9300))
+						new InetSocketTransportAddress("192.168.56.101", 9300))
 				.addTransportAddress(
-						new InetSocketTransportAddress("192.168.56.102", 9301))
+						new InetSocketTransportAddress("192.168.56.101", 9301))
 				.addTransportAddress(
-						new InetSocketTransportAddress("192.168.56.102", 9302))
+						new InetSocketTransportAddress("192.168.56.101", 9302))
 				.addTransportAddress(
-						new InetSocketTransportAddress("192.168.56.102", 9303))
+						new InetSocketTransportAddress("192.168.56.101", 9303))
 				.addTransportAddress(
-						new InetSocketTransportAddress("192.168.56.102", 9304));
+						new InetSocketTransportAddress("192.168.56.101", 9304));
 		
 		BulkRequestBuilder bulkRequest = client.prepareBulk();
 
-		for (int i = 1; i <= 3; i++) {
-			bulkRequest.add(client.prepareIndex("user18", "test", "" + i)
-			        .setSource(jsonBuilder()
-			                    .startObject()
-			                        .field("id", "newid_" + i)
-			                        .field("name", "newname_" + i)
-			                    .endObject()
-			                  )
-			        );
+		for (int i = 20002001; i <= 20010000; i++) {
+			bulkRequest.add(client.prepareIndex("user50", "test", "" + i)
+					.setSource(
+							jsonBuilder().startObject()
+									.field("user", "user" + i)
+									.field("location", "location" + i)
+									.field("id", "id" + i)
+									.field("name", "name" + i).endObject()));
 		}
 
 		BulkResponse bulkResponse = bulkRequest.execute().actionGet();
