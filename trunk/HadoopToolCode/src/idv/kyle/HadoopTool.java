@@ -23,7 +23,7 @@ public class HadoopTool {
           tool.mainRun(args[1], args[2]);
         }
       } else if ("readSeqFile".equals(args[0])) {
-        if (args.length != 2) {
+        if (args.length < 2) {
           throw new IllegalArgumentException("Incorrect number of arguments");
         } else {
           SequenceFileReadDemo tool = new SequenceFileReadDemo();
@@ -46,6 +46,6 @@ public class HadoopTool {
     System.out.println("");
     System.out.println("convertTextToSeq Usage: jarName convertTextToSeq inputPath outputPath");
     System.out.println("");
-    System.out.println("seqFileReadDemo Usage: jarName seqFileReadDemo fileUri");
+    System.out.println("readSeqFile Usage: jarName readSeqFile fileUri");
   }
 }
