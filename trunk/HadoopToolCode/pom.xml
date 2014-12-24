@@ -37,6 +37,57 @@
 					</execution>
 				</executions>
 			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-assembly-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>assembly:package</id>
+						<phase>package</phase>
+						<goals>
+							<goal>single</goal>
+						</goals>
+						<configuration>
+							<!-- The filename of the assembled distribution file defualt ${project.build.finalName} -->
+							<finalName>${project.build.finalName}</finalName>
+							<appendAssemblyId>false</appendAssemblyId>
+							<!-- A list of descriptor files path to generate from -->
+							<descriptors>
+								<descriptor>assembly/assembly.xml</descriptor>
+							</descriptors>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<!-- jar plug in -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-jar-plugin</artifactId>
+				<version>2.3</version>
+				<configuration>
+					<archive>
+						<manifest>
+							<mainClass>fully.qualified.MainClass</mainClass>
+							<!-- to create a class path to your dependecies you have to fill true 
+								in this field -->
+							<addClasspath>true</addClasspath>
+							<!-- if you put your dependencySet/outputDirectory in the assembly 
+								file is in a specific folder (lib for example), you need to add classpathPrefix -->
+							<classpathPrefix>lib/</classpathPrefix>
+							<!-- if you defined your dependencySet/outputFileNameMapping in the 
+								assembly, instead of using the classpathPrefix, you should use customClasspathLayout, 
+								add the classpathPrefix at the begining of the customClasspathLayout, and 
+								then add the pattern of the outputFileNameMapping, NOTICE YOU NEED TO ADD 
+								'$' BEFOR OF EACH '$'. supported only from version 2.3> -->
+							<!--<classpathLayoutType>custom</classpathLayoutType> <customClasspathLayout> 
+								lib/$${artifact.groupId}.$${artifact.artifactId}.$${artifact.extension} </customClasspathLayout> -->
+						</manifest>
+						<manifestEntries>
+							<Class-Path>conf/</Class-Path>
+						</manifestEntries>
+					</archive>
+				</configuration>
+			</plugin>
 		</plugins>
 	</build>
 
@@ -75,38 +126,6 @@
 			<groupId>org.apache.hadoop</groupId>
 			<artifactId>hadoop-auth</artifactId>
 			<version>2.6.0</version>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.storm</groupId>
-			<artifactId>storm-core</artifactId>
-			<version>0.9.3</version>
-			<!-- keep storm out of the jar-with-dependencies -->
-			<scope>provided</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.storm</groupId>
-			<artifactId>storm-starter</artifactId>
-			<version>0.9.3</version>
-		</dependency>
-		<dependency>
-			<groupId>org.elasticsearch</groupId>
-			<artifactId>elasticsearch-hadoop</artifactId>
-			<version>1.2.0</version>
-		</dependency>
-		<dependency>
-			<groupId>org.elasticsearch</groupId>
-			<artifactId>elasticsearch-storm</artifactId>
-			<version>2.1.0.Beta3</version>
-		</dependency>
-		<dependency>
-			<groupId>commons-httpclient</groupId>
-			<artifactId>commons-httpclient</artifactId>
-			<version>3.1</version>
-		</dependency>
-		<dependency>
-			<groupId>org.codehaus.jackson</groupId>
-			<artifactId>jackson-mapper-asl</artifactId>
-			<version>1.9.13</version>
 		</dependency>
 	</dependencies>
 </project>
