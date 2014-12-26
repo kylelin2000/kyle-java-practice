@@ -26,9 +26,8 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IOUtils;
-import org.elasticsearch.storm.EsBolt;
 
-public class FromHDFSToESTopology {
+public class FromHDFSTopology {
 
   public static class HDFSFileReaderSpout extends BaseRichSpout {
 
@@ -137,8 +136,6 @@ public class FromHDFSToESTopology {
       builder.setBolt("split", new SplitSentence(), 8).shuffleGrouping("spout");
       builder.setBolt("count", new WordCount(), 12).fieldsGrouping("split",
           new Fields("word"));
-      builder.setBolt("es-bolt", new EsBolt(args[2]), 5).shuffleGrouping(
-          "count");
 
       Config conf = new Config();
       conf.setDebug(true);
