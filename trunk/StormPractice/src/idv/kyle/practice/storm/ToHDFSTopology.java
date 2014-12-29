@@ -112,10 +112,10 @@ public class ToHDFSTopology {
   }
 
   public static void main(String[] args) throws Exception {
-    if (args == null || args.length != 2) {
+    if (args == null || args.length != 3) {
       System.out
           .println("Wrong number of arguments!!!"
-              + "arg1: topology_name(Ex:TP), arg2: HDFS file path(Ex:/tmp/maillog-out/)");
+              + "arg1: topology_name(Ex:TP), arg2: URL(Ex.hdfs://10.1.193.226:8020), arg3: HDFS file path(Ex:/tmp/maillog-out/)");
     } else {
       Map<String, Object> confMap = new HashMap<String, Object>();
       confMap.put("fs.hdfs.impl",
@@ -127,7 +127,8 @@ public class ToHDFSTopology {
       conf.put("hdfs.config", confMap);
 
       FileNameFormat fileNameFormat =
-          new DefaultFileNameFormat().withPath("/tmp/").withExtension(".txt");
+          new DefaultFileNameFormat().withPath("/tmp/storm_out/")
+              .withExtension(".out");
 
       RecordFormat format = new DelimitedRecordFormat().withFieldDelimiter(" ");
 
@@ -139,10 +140,10 @@ public class ToHDFSTopology {
           new TimedRotationPolicy(1.0f, TimedRotationPolicy.TimeUnit.MINUTES);
 
       HdfsBolt hdfsBolt =
-          new HdfsBolt().withConfigKey("hdfs.config").withFsUrl(args[0])
+          new HdfsBolt().withConfigKey("hdfs.config").withFsUrl(args[1])
               .withFileNameFormat(fileNameFormat).withRecordFormat(format)
               .withRotationPolicy(rotationPolicy).withSyncPolicy(syncPolicy)
-              .addRotationAction(new MoveFileAction().toDestination(args[1]));
+              .addRotationAction(new MoveFileAction().toDestination(args[2]));
 
       conf.setNumWorkers(3);
 

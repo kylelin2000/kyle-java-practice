@@ -137,7 +137,7 @@ public class FromHDFSToHDFSTopology {
     if (args == null || args.length != 3) {
       System.out
           .println("Wrong number of arguments!!!"
-              + "arg1: topology_name(Ex:TP), arg2: HDFS file path(Ex:/tmp/maillog), arg3: HDFS file path(Ex:/tmp/maillog-out)");
+              + "arg1: topology_name(Ex:TP), arg2: URL(Ex.hdfs://10.1.193.226:8020), arg3: HDFS file path(Ex:/tmp/maillog-out)");
     } else {
       Map<String, Object> confMap = new HashMap<String, Object>();
       confMap.put("fs.hdfs.impl",
@@ -162,7 +162,7 @@ public class FromHDFSToHDFSTopology {
 
       HdfsBolt hdfsBolt =
           new HdfsBolt().withConfigKey("hdfs.config")
-              .withFsUrl(args[0])
+.withFsUrl(args[1])
               .withFileNameFormat(fileNameFormat)
               .withRecordFormat(format)
               .withRotationPolicy(rotationPolicy)
