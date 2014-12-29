@@ -26,8 +26,18 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IOUtils;
+import org.apache.storm.hdfs.bolt.HdfsBolt;
+import org.apache.storm.hdfs.bolt.format.DefaultFileNameFormat;
+import org.apache.storm.hdfs.bolt.format.DelimitedRecordFormat;
+import org.apache.storm.hdfs.bolt.format.FileNameFormat;
+import org.apache.storm.hdfs.bolt.format.RecordFormat;
+import org.apache.storm.hdfs.bolt.rotation.FileRotationPolicy;
+import org.apache.storm.hdfs.bolt.rotation.TimedRotationPolicy;
+import org.apache.storm.hdfs.bolt.sync.CountSyncPolicy;
+import org.apache.storm.hdfs.bolt.sync.SyncPolicy;
+import org.apache.storm.hdfs.common.rotation.MoveFileAction;
 
-public class FromHDFSTopology {
+public class FromHDFSToHDFSTopology {
 
   public static class HDFSFileReaderSpout extends BaseRichSpout {
 
@@ -127,8 +137,40 @@ public class FromHDFSTopology {
     if (args == null || args.length != 3) {
       System.out
           .println("Wrong number of arguments!!!"
-              + "arg1: topology_name(Ex:TP), arg2: HDFS file path(Ex:hdfs://192.168.1.10:8020/tmp/maillog), arg3: ES index/type(Ex:stormtest/docs)");
+              + "arg1: topology_name(Ex:TP), arg2: HDFS file path(Ex:/tmp/maillog), arg3: HDFS file path(Ex:/tmp/maillog-out)");
     } else {
+      Map<String, Object> confMap = new HashMap<String, Object>();
+      confMap.put("fs.hdfs.impl",
+          "org.apache.hadoop.hdfs.DistributedFileSystem");
+
+      Config conf = new Config();
+      conf.setDebug(true);
+      conf.put("es.index.auto.create", "true");
+      conf.put("hdfs.config", confMap);
+
+      FileNameFormat fileNameFormat =
+          new DefaultFileNameFormat().withPath("/tmp/").withExtension(".txt");
+
+      RecordFormat format = new DelimitedRecordFormat().withFieldDelimiter(" ");
+
+      // sync the filesystem after every 1k tuples
+      SyncPolicy syncPolicy = new CountSyncPolicy(1000);
+
+      // rotate files when they reach 5MB
+      FileRotationPolicy rotationPolicy =
+          new TimedRotationPolicy(1.0f, TimedRotationPolicy.TimeUnit.MINUTES);
+
+      HdfsBolt hdfsBolt =
+          new HdfsBolt().withConfigKey("hdfs.config")
+              .withFsUrl(args[0])
+              .withFileNameFormat(fileNameFormat)
+              .withRecordFormat(format)
+              .withRotationPolicy(rotationPolicy)
+              .withSyncPolicy(syncPolicy)
+              .addRotationAction(new MoveFileAction().toDestination(args[2]));
+
+      conf.setNumWorkers(3);
+
       TopologyBuilder builder = new TopologyBuilder();
 
       builder.setSpout("spout", new HDFSFileReaderSpout(args[1]), 5);
@@ -136,12 +178,7 @@ public class FromHDFSTopology {
       builder.setBolt("split", new SplitSentence(), 8).shuffleGrouping("spout");
       builder.setBolt("count", new WordCount(), 12).fieldsGrouping("split",
           new Fields("word"));
-
-      Config conf = new Config();
-      conf.setDebug(true);
-      conf.put("es.index.auto.create", "true");
-
-      conf.setNumWorkers(3);
+      builder.setBolt("hdfs", hdfsBolt, 4).shuffleGrouping("count");
 
       StormSubmitter.submitTopology(args[0], conf, builder.createTopology());
     }
