@@ -169,7 +169,7 @@ public class FromHDFSToHDFSTopology {
               .withSyncPolicy(syncPolicy)
               .addRotationAction(new MoveFileAction().toDestination(args[2]));
 
-      conf.setNumWorkers(3);
+      conf.setNumWorkers(2);
 
       TopologyBuilder builder = new TopologyBuilder();
 

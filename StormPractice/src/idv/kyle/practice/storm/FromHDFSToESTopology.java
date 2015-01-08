@@ -144,7 +144,7 @@ public class FromHDFSToESTopology {
       conf.setDebug(true);
       conf.put("es.index.auto.create", "true");
 
-      conf.setNumWorkers(3);
+      conf.setNumWorkers(2);
 
       StormSubmitter.submitTopology(args[0], conf, builder.createTopology());
     }

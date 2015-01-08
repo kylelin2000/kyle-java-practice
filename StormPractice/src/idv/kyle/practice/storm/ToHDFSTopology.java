@@ -145,7 +145,7 @@ public class ToHDFSTopology {
               .withRotationPolicy(rotationPolicy).withSyncPolicy(syncPolicy)
               .addRotationAction(new MoveFileAction().toDestination(args[2]));
 
-      conf.setNumWorkers(3);
+      conf.setNumWorkers(2);
 
       TopologyBuilder builder = new TopologyBuilder();
 
