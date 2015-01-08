@@ -89,5 +89,11 @@
 			<artifactId>hadoop-hdfs</artifactId>
 			<version>2.6.0</version>
 		</dependency>
+		<!-- Async HTTP request -->
+		<dependency>
+			<groupId>org.apache.httpcomponents</groupId>
+			<artifactId>httpasyncclient</artifactId>
+			<version>4.0.2</version>
+		</dependency>
 	</dependencies>
 </project>

@@ -43,11 +43,11 @@ public class ESReadTopology {
       builder.setBolt("bolt", new PrinterBolt()).shuffleGrouping("esSpout");
 
       if (args != null && args.length > 0) {
-        conf.setNumWorkers(3);
+        conf.setNumWorkers(2);
 
         StormSubmitter.submitTopology(args[0], conf, builder.createTopology());
       } else {
-        conf.setMaxTaskParallelism(3);
+        conf.setMaxTaskParallelism(2);
 
         LocalCluster cluster = new LocalCluster();
         cluster.submitTopology("word-count", conf, builder.createTopology());

@@ -3,11 +3,11 @@ package idv.kyle.practice.storm;
 import backtype.storm.Config;
 import backtype.storm.StormSubmitter;
 import backtype.storm.spout.SpoutOutputCollector;
+import backtype.storm.task.OutputCollector;
 import backtype.storm.task.TopologyContext;
-import backtype.storm.topology.BasicOutputCollector;
 import backtype.storm.topology.OutputFieldsDeclarer;
 import backtype.storm.topology.TopologyBuilder;
-import backtype.storm.topology.base.BaseBasicBolt;
+import backtype.storm.topology.base.BaseRichBolt;
 import backtype.storm.topology.base.BaseRichSpout;
 import backtype.storm.tuple.Fields;
 import backtype.storm.tuple.Tuple;
@@ -15,26 +15,31 @@ import backtype.storm.tuple.Values;
 import backtype.storm.utils.Utils;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URI;
+import java.nio.CharBuffer;
 import java.util.Map;
+import java.util.concurrent.Future;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IOUtils;
-import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
-import org.apache.http.HttpStatus;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
+import org.apache.http.impl.nio.client.HttpAsyncClients;
+import org.apache.http.nio.IOControl;
+import org.apache.http.nio.client.methods.AsyncCharConsumer;
+import org.apache.http.nio.client.methods.HttpAsyncMethods;
+import org.apache.http.protocol.HttpContext;
 import org.codehaus.jettison.json.JSONObject;
 import org.elasticsearch.storm.EsBolt;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class CallQueryProxyTopology {
+public class CallQueryProxyAsyncTopology {
   public static class HDFSFileReaderSpout extends BaseRichSpout {
     SpoutOutputCollector _collector;
     String _uri;
@@ -86,38 +91,37 @@ public class CallQueryProxyTopology {
     }
   }
 
-  public static class CallQueryProxy extends BaseBasicBolt {
+  public static class CallQueryProxy extends BaseRichBolt {
     private static final Logger LOG = LoggerFactory
         .getLogger(CallQueryProxy.class);
 
+    CloseableHttpAsyncClient _httpclient;
+    OutputCollector _collector;
+
     @Override
-    public void execute(Tuple tuple, BasicOutputCollector collector) {
+    public void prepare(Map conf, TopologyContext context,
+        OutputCollector collector) {
+      _collector = collector;
+      _httpclient = HttpAsyncClients.createDefault();
+    }
+
+    @Override
+    public void execute(Tuple tuple) {
       Utils.sleep(100);
       Thread t = Thread.currentThread();
       LOG.info("Thread name: " + t.getName() + ", Thread id: " + t.getId());
       String url = tuple.getString(0);
       LOG.info("query proxy url : " + url);
       try {
-        DefaultHttpClient httpclient = new DefaultHttpClient();
-        HttpGet httpget = new HttpGet(url);
-        HttpResponse response = httpclient.execute(httpget);
-        int status = response.getStatusLine().getStatusCode();
-        LOG.info("Response status : " + status);
-        if (status == HttpStatus.SC_OK) {
-          HttpEntity entity = response.getEntity();
-          BufferedReader rd =
-              new BufferedReader(new InputStreamReader(entity.getContent()));
-          String inputLine;
-          while ((inputLine = rd.readLine()) != null) {
-            LOG.info("result from query proxy : " + inputLine);
-            JSONObject jsonObj = new JSONObject(inputLine);
-            if ("200".equals(jsonObj.get("status").toString())) {
-              collector.emit(new Values(jsonObj.get("status").toString(),
-                  jsonObj.get("result").toString(), jsonObj.get("service")
-                      .toString()));
-            }
-          }
-          rd.close();
+        _httpclient.start();
+        final Future<Boolean> future =
+            _httpclient.execute(HttpAsyncMethods.createGet(url),
+                new MyResponseConsumer(), null);
+        final Boolean result = future.get();
+        if (result != null && result.booleanValue()) {
+          LOG.info("Request successfully executed");
+        } else {
+          LOG.info("Request failed");
         }
       } catch (Exception e) {
         e.printStackTrace();
@@ -132,6 +136,40 @@ public class CallQueryProxyTopology {
     @Override
     public Map<String, Object> getComponentConfiguration() {
       return null;
+    }
+
+    class MyResponseConsumer extends AsyncCharConsumer<Boolean> {
+      @Override
+      protected void onResponseReceived(final HttpResponse response) {
+      }
+
+      @Override
+      protected void onCharReceived(final CharBuffer buf, final IOControl ioctrl)
+          throws IOException {
+        while (buf.hasRemaining()) {
+          String inputLine = buf.toString();
+          LOG.info("result from query proxy : " + inputLine);
+          try {
+            JSONObject jsonObj = new JSONObject(inputLine);
+            if ("200".equals(jsonObj.get("status").toString())) {
+              _collector.emit(new Values(jsonObj.get("status").toString(),
+                  jsonObj.get("result").toString(), jsonObj.get("service")
+                      .toString()));
+            }
+          } catch (Exception e) {
+            e.printStackTrace();
+          }
+        }
+      }
+
+      @Override
+      protected void releaseResources() {
+      }
+
+      @Override
+      protected Boolean buildResult(final HttpContext context) {
+        return Boolean.TRUE;
+      }
     }
   }
 
@@ -154,7 +192,7 @@ public class CallQueryProxyTopology {
       conf.setDebug(true);
       conf.put("es.index.auto.create", "true");
 
-      conf.setNumWorkers(3);
+      conf.setNumWorkers(2);
 
       StormSubmitter.submitTopology(args[0], conf, builder.createTopology());
     }
