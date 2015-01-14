@@ -24,7 +24,7 @@ import org.apache.storm.hdfs.bolt.format.DelimitedRecordFormat;
 import org.apache.storm.hdfs.bolt.format.FileNameFormat;
 import org.apache.storm.hdfs.bolt.format.RecordFormat;
 import org.apache.storm.hdfs.bolt.rotation.FileRotationPolicy;
-import org.apache.storm.hdfs.bolt.rotation.TimedRotationPolicy;
+import org.apache.storm.hdfs.bolt.rotation.FileSizeRotationPolicy;
 import org.apache.storm.hdfs.bolt.sync.CountSyncPolicy;
 import org.apache.storm.hdfs.bolt.sync.SyncPolicy;
 import org.apache.storm.hdfs.common.rotation.MoveFileAction;
@@ -137,7 +137,7 @@ public class ToHDFSTopology {
 
       // rotate files when they reach 5MB
       FileRotationPolicy rotationPolicy =
-          new TimedRotationPolicy(1.0f, TimedRotationPolicy.TimeUnit.MINUTES);
+          new FileSizeRotationPolicy(50.0f, FileSizeRotationPolicy.Units.MB);
 
       HdfsBolt hdfsBolt =
           new HdfsBolt().withConfigKey("hdfs.config").withFsUrl(args[1])
