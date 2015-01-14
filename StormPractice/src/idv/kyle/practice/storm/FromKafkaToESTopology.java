@@ -25,24 +25,11 @@ import storm.kafka.StringScheme;
 import storm.kafka.ZkHosts;
 
 public class FromKafkaToESTopology {
-  public static class PrinterBolt extends BaseBasicBolt {
-
-    @Override
-    public void execute(Tuple tuple, BasicOutputCollector collector) {
-      System.out.println("print tuple: " + tuple);
-    }
-
-    @Override
-    public void declareOutputFields(OutputFieldsDeclarer ofd) {
-    }
-
-  }
-
   public static class SplitSentence extends BaseBasicBolt {
 
     @Override
     public void execute(Tuple tuple, BasicOutputCollector collector) {
-      String line = tuple.toString();
+      String line = tuple.getString(0);
       String all[] = line.split(" ");
       for (String word : all) {
         collector.emit(new Values(word));
@@ -82,6 +69,19 @@ public class FromKafkaToESTopology {
     }
   }
 
+  protected static KafkaSpout createKafkaSpout(String topic, String zkRootPath,
+      String id) {
+    BrokerHosts hosts = new ZkHosts("sparkvm.localdomain:2181", "/brokers");
+    SpoutConfig spoutConfig = new SpoutConfig(hosts, topic, zkRootPath, id);
+    spoutConfig.scheme = new SchemeAsMultiScheme(new StringScheme());
+    spoutConfig.forceFromStart = true;
+    spoutConfig.startOffsetTime = -1;
+
+    KafkaSpout kafkaSpout = new KafkaSpout(spoutConfig);
+
+    return kafkaSpout;
+  }
+
   public static void main(String[] args) throws Exception {
     if (args == null || args.length != 4) {
       System.out
@@ -92,21 +92,18 @@ public class FromKafkaToESTopology {
 
       BrokerHosts brokerHosts = new ZkHosts("sparkvm.localdomain:2181");
       SpoutConfig spoutConfig =
-          new SpoutConfig(brokerHosts, args[2], args[1], "consumer1");
+          new SpoutConfig(brokerHosts, args[2], args[1], "id1");
       spoutConfig.scheme = new SchemeAsMultiScheme(new StringScheme());
       spoutConfig.forceFromStart = true;
-      spoutConfig.startOffsetTime = -1;
+      spoutConfig.startOffsetTime = -2;
 
-      builder.setSpout("spout", new KafkaSpout(spoutConfig), 1);
-      builder.setBolt("print", new PrinterBolt()).shuffleGrouping("spout");
-
-      /*
+      builder.setSpout("spout",
+          createKafkaSpout(args[2], args[1], "consumer1"), 1);
       builder.setBolt("split", new SplitSentence(), 8).shuffleGrouping("spout");
       builder.setBolt("count", new WordCount(), 12).fieldsGrouping("split",
           new Fields("word"));
       builder.setBolt("es-bolt", new EsBolt(args[3]), 5).shuffleGrouping(
           "count");
-          */
 
       Config conf = new Config();
       conf.setDebug(true);
