@@ -26,10 +26,12 @@ import storm.kafka.ZkHosts;
 
 public class FromKafkaToESTopology {
   public static class SplitSentence extends BaseBasicBolt {
-
+    private static final Logger LOG = LoggerFactory.getLogger(SplitSentence.class);
+    
     @Override
     public void execute(Tuple tuple, BasicOutputCollector collector) {
       String line = tuple.getString(0);
+      LOG.info("read line : " + line);
       String all[] = line.split(" ");
       for (String word : all) {
         collector.emit(new Values(word));
@@ -89,13 +91,6 @@ public class FromKafkaToESTopology {
               + "arg1: topology_name(Ex:TP), arg2: zk root(Ex:/kafka-storm), arg3: topic_name, arg4: ES index/type(Ex:stormtest/docs)");
     } else {
       TopologyBuilder builder = new TopologyBuilder();
-
-      BrokerHosts brokerHosts = new ZkHosts("sparkvm.localdomain:2181");
-      SpoutConfig spoutConfig =
-          new SpoutConfig(brokerHosts, args[2], args[1], "id1");
-      spoutConfig.scheme = new SchemeAsMultiScheme(new StringScheme());
-      spoutConfig.forceFromStart = true;
-      spoutConfig.startOffsetTime = -2;
 
       builder.setSpout("spout",
           createKafkaSpout(args[2], args[1], "consumer1"), 1);
