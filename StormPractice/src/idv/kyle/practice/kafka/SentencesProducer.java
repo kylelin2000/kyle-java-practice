@@ -7,7 +7,7 @@ import kafka.javaapi.producer.Producer;
 import kafka.producer.KeyedMessage;
 import kafka.producer.ProducerConfig;
 
-public class HelloKafka {
+public class SentencesProducer {
   public static void main(String[] args) {
     if (args == null || args.length != 2) {
       System.out.println("Wrong number of arguments!!!"
