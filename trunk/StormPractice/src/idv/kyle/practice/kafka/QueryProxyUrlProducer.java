@@ -24,9 +24,9 @@ public class QueryProxyUrlProducer {
   }
 
   public static void main(String[] args) throws Exception {
-    if (args == null || args.length != 3) {
+    if (args == null || args.length != 4) {
       System.out.println("Wrong number of arguments!!!"
-          + "arg1: broker_list, arg2: number of records, arg3: topic_name");
+              + "arg1: broker_list, arg2: number of records, arg3: topic_name, arg4: group_id");
     } else {
       long events = Long.parseLong(args[1]);
       Random rnd = new Random();
@@ -37,6 +37,7 @@ public class QueryProxyUrlProducer {
       props.put("partitioner.class",
           "idv.kyle.practice.kafka.SimplePartitioner");
       props.put("request.required.acks", "1");
+      props.put("group.id", args[3]);
 
       ProducerConfig config = new ProducerConfig(props);
 
