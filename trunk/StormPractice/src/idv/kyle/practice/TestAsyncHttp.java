@@ -21,11 +21,12 @@ public class TestAsyncHttp {
     @Override
     protected void onCharReceived(final CharBuffer buf, final IOControl ioctrl)
         throws IOException {
-      // buf.flip();
-      if (buf.hasRemaining()) {
-        System.out.println(buf.toString());
+      char[] result = new char[buf.remaining()];
+      int idx = 0;
+      while (buf.hasRemaining()) {
+        result[idx++] = buf.get();
       }
-      // buf.clear();
+      System.out.println("==>" + new String(result));
     }
 
     @Override

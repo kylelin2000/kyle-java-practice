@@ -34,8 +34,8 @@ public class HelloKafkaOffset {
   }
 
   public static void main(String[] args) throws Exception {
-    long whichTime = kafka.api.OffsetRequest.LatestTime();
-    // long whichTime = 3100;
+    // long whichTime = kafka.api.OffsetRequest.LatestTime();
+    long whichTime = -1L;
     // long whichTime = kafka.api.OffsetRequest.EarliestTime();
     System.out.println("whichTime: " + whichTime);
     HelloKafkaOffset.getLastOffset(new SimpleConsumer("10.1.193.226", 6667,
