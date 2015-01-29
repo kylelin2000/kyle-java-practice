@@ -20,31 +20,32 @@ import org.slf4j.LoggerFactory;
 
 import backtype.storm.task.OutputCollector;
 import backtype.storm.task.TopologyContext;
-import backtype.storm.topology.BasicOutputCollector;
 import backtype.storm.topology.OutputFieldsDeclarer;
-import backtype.storm.topology.base.BaseBasicBolt;
 import backtype.storm.topology.base.BaseRichBolt;
 import backtype.storm.tuple.Fields;
 import backtype.storm.tuple.Tuple;
 import backtype.storm.tuple.Values;
 import backtype.storm.utils.Utils;
 
-public class CallQueryProxyByAsync3 extends BaseBasicBolt {
+public class CallQueryProxyByAsyncBolt extends BaseRichBolt {
   private static final Logger LOG = LoggerFactory
-      .getLogger(CallQueryProxyByAsync3.class);
+      .getLogger(CallQueryProxyByAsyncBolt.class);
 
   private CloseableHttpAsyncClient _httpclient;
-  BasicOutputCollector _collector;
+  OutputCollector _collector;
+  Tuple _tuple;
 
   @Override
-  public void prepare(Map conf, TopologyContext context) {
+  public void prepare(Map conf, TopologyContext context,
+      OutputCollector collector) {
+    _collector = collector;
     _httpclient = HttpAsyncClients.createDefault();
     _httpclient.start();
   }
 
   @Override
-  public void execute(Tuple tuple, BasicOutputCollector collector) {
-    _collector = collector;
+  public void execute(Tuple tuple) {
+    _tuple = tuple;
     Utils.sleep(100);
     Thread t = Thread.currentThread();
     LOG.info("Thread name: " + t.getName() + ", Thread id: " + t.getId());
@@ -92,6 +93,7 @@ public class CallQueryProxyByAsync3 extends BaseBasicBolt {
                 throw new RuntimeException(e);
               }
             }
+            _collector.ack(_tuple);
           }
 
           @Override

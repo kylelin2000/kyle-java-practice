@@ -22,9 +22,9 @@ import backtype.storm.tuple.Tuple;
 import backtype.storm.tuple.Values;
 import backtype.storm.utils.Utils;
 
-public class CallQueryProxyBySync extends BaseBasicBolt {
+public class CallQueryProxyBySyncBolt extends BaseBasicBolt {
   private static final Logger LOG = LoggerFactory
-      .getLogger(CallQueryProxyBySync.class);
+      .getLogger(CallQueryProxyBySyncBolt.class);
 
   @Override
   public void execute(Tuple tuple, BasicOutputCollector collector) {
