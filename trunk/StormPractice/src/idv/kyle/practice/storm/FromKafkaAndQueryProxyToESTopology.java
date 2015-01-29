@@ -4,8 +4,8 @@ import backtype.storm.Config;
 import backtype.storm.StormSubmitter;
 import backtype.storm.spout.SchemeAsMultiScheme;
 import backtype.storm.topology.TopologyBuilder;
-import idv.kyle.practice.storm.bolt.CallQueryProxyByAsync;
-import idv.kyle.practice.storm.bolt.CallQueryProxyBySync;
+import idv.kyle.practice.storm.bolt.CallQueryProxyByAsyncBolt;
+import idv.kyle.practice.storm.bolt.CallQueryProxyBySyncBolt;
 
 import java.util.Properties;
 
@@ -46,11 +46,11 @@ public class FromKafkaAndQueryProxyToESTopology {
           createKafkaSpout(args[2], args[1], "es-consumer",
               Long.parseLong(args[4])), 2);
       if ("T".equals(args[5])) {
-        builder.setBolt("query", new CallQueryProxyByAsync(), 3)
+        builder.setBolt("query", new CallQueryProxyByAsyncBolt(), 3)
             .shuffleGrouping(
             "spout");
       } else {
-        builder.setBolt("query", new CallQueryProxyBySync(), 3)
+        builder.setBolt("query", new CallQueryProxyBySyncBolt(), 3)
             .shuffleGrouping(
             "spout");
       }
@@ -65,11 +65,11 @@ public class FromKafkaAndQueryProxyToESTopology {
 
       Properties props = new Properties();
       props.put("metadata.broker.list", "sparkvm.localhost:6667");
-      // props.put("request.required.acks", "1");
       props.put("serializer.class", "kafka.serializer.StringEncoder");
       conf.put(TridentKafkaState.KAFKA_BROKER_PROPERTIES, props);
 
       conf.setNumWorkers(2);
+      conf.setMessageTimeoutSecs(60);
 
       StormSubmitter.submitTopology(args[0], conf, builder.createTopology());
     }

@@ -25,9 +25,9 @@ import backtype.storm.tuple.Tuple;
 import backtype.storm.tuple.Values;
 import backtype.storm.utils.Utils;
 
-public class CallQueryProxyByAsync2 extends BaseRichBolt {
+public class CallQueryProxyByAsync2Bolt extends BaseRichBolt {
   private static final Logger LOG = LoggerFactory
-      .getLogger(CallQueryProxyByAsync2.class);
+      .getLogger(CallQueryProxyByAsync2Bolt.class);
 
   CloseableHttpAsyncClient _httpclient;
   OutputCollector _collector;
