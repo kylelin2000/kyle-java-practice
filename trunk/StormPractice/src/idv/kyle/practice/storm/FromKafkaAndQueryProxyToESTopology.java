@@ -24,9 +24,9 @@ public class FromKafkaAndQueryProxyToESTopology {
     BrokerHosts hosts = new ZkHosts("sparkvm.localdomain:2181", "/brokers");
     SpoutConfig spoutConfig = new SpoutConfig(hosts, topic, zkRootPath, id);
     spoutConfig.scheme = new SchemeAsMultiScheme(new StringScheme());
-    spoutConfig.forceFromStart = true;
+    spoutConfig.forceFromStart = false;
     // spoutConfig.startOffsetTime = kafka.api.OffsetRequest.LatestTime();
-    spoutConfig.startOffsetTime = startOffset;
+    spoutConfig.startOffsetTime = startOffset;// -1: from resent, -2: from beginning
 
     KafkaSpout kafkaSpout = new KafkaSpout(spoutConfig);
 
@@ -51,21 +51,27 @@ public class FromKafkaAndQueryProxyToESTopology {
             "spout");
       } else {
         builder.setBolt("query", new CallQueryProxyBySyncBolt(), 3)
-            .shuffleGrouping(
-            "spout");
+            .shuffleGrouping("spout");
       }
 
-      builder.setBolt("es-bolt", new EsBolt(args[3], true), 3)
-          .shuffleGrouping("query")
-          .addConfiguration(Config.TOPOLOGY_TICK_TUPLE_FREQ_SECS, 5);
+      builder.setBolt("es-bolt", new EsBolt(args[3], true), 3).shuffleGrouping("query");
 
       Config conf = new Config();
       conf.setDebug(true);
       conf.put("es.index.auto.create", "true");
+      conf.put("request.required.acks", "1");
+      // conf.put(Config.DRPC_REQUEST_TIMEOUT_SECS, 3600);
+      conf.put(Config.TOPOLOGY_MESSAGE_TIMEOUT_SECS, "90");
+      conf.put(Config.TOPOLOGY_TICK_TUPLE_FREQ_SECS, 5);
+      conf.put(Config.TOPOLOGY_MAX_SPOUT_PENDING, 10);
 
       Properties props = new Properties();
       props.put("metadata.broker.list", "sparkvm.localhost:6667");
       props.put("serializer.class", "kafka.serializer.StringEncoder");
+      props.put("request.required.acks", "1");
+      props.put("auto.commit.interval.ms", 10 * 1000);
+      props.put("consumer.timeout.ms", 10 * 1000);
+      props.put("consumer.timeout.ms", 120 * 1000);
       conf.put(TridentKafkaState.KAFKA_BROKER_PROPERTIES, props);
 
       conf.setNumWorkers(2);

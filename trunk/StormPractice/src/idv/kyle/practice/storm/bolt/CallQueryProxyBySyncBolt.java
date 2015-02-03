@@ -14,6 +14,7 @@ import org.codehaus.jettison.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import backtype.storm.Constants;
 import backtype.storm.topology.BasicOutputCollector;
 import backtype.storm.topology.OutputFieldsDeclarer;
 import backtype.storm.topology.base.BaseBasicBolt;
@@ -26,11 +27,20 @@ public class CallQueryProxyBySyncBolt extends BaseBasicBolt {
   private static final Logger LOG = LoggerFactory
       .getLogger(CallQueryProxyBySyncBolt.class);
 
+  private boolean isTickTuple(Tuple tuple) {
+    return tuple.getSourceComponent().equals(Constants.SYSTEM_COMPONENT_ID)
+        && tuple.getSourceStreamId().equals(Constants.SYSTEM_TICK_STREAM_ID);
+  }
+
   @Override
   public void execute(Tuple tuple, BasicOutputCollector collector) {
     Utils.sleep(100);
     Thread t = Thread.currentThread();
     LOG.info("Thread name: " + t.getName() + ", Thread id: " + t.getId());
+    if (isTickTuple(tuple)) {
+      LOG.info("skip tick tuple");
+      return;
+    }
     String url = tuple.getString(0);
     LOG.info("query proxy url : " + url);
     CloseableHttpClient httpclient = HttpClientBuilder.create().build();
