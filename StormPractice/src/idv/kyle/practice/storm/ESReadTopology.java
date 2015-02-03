@@ -1,5 +1,6 @@
 package idv.kyle.practice.storm;
 
+import idv.kyle.practice.storm.bolt.PrinterBolt;
 import backtype.storm.Config;
 import backtype.storm.LocalCluster;
 import backtype.storm.StormSubmitter;
@@ -13,20 +14,6 @@ import backtype.storm.tuple.Tuple;
 import org.elasticsearch.storm.EsSpout;
 
 public class ESReadTopology {
-
-  public static class PrinterBolt extends BaseBasicBolt {
-
-    @Override
-    public void execute(Tuple tuple, BasicOutputCollector collector) {
-      System.out.println("tuple: " + tuple);
-    }
-
-    @Override
-    public void declareOutputFields(OutputFieldsDeclarer ofd) {
-    }
-
-  }
-
   public static void main(String[] args) throws Exception {
     if (args == null || args.length != 3) {
       System.out
