@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 
 import com.ning.http.client.AsyncCompletionHandler;
 import com.ning.http.client.AsyncHttpClient;
+import com.ning.http.client.AsyncHttpClientConfig;
 import com.ning.http.client.Response;
 
 import backtype.storm.Constants;
@@ -27,11 +28,16 @@ public class CallQueryProxyByAsync2Bolt extends BaseRichBolt {
       .getLogger(CallQueryProxyByAsync2Bolt.class);
 
   OutputCollector _collector;
+  AsyncHttpClient _asyncHttpClient;
 
   @Override
   public void prepare(Map conf, TopologyContext context,
       OutputCollector collector) {
     _collector = collector;
+    AsyncHttpClientConfig clientConfig =
+        new AsyncHttpClientConfig.Builder().setAllowPoolingConnections(true)
+            .setMaxConnectionsPerHost(5).setMaxConnections(5).build();
+    _asyncHttpClient = new AsyncHttpClient(clientConfig);
   }
 
   @Override
@@ -45,9 +51,8 @@ public class CallQueryProxyByAsync2Bolt extends BaseRichBolt {
     }
     String url = tuple.getString(0);
     LOG.info("query proxy url : " + url);
-    AsyncHttpClient asyncHttpClient = new AsyncHttpClient();
     Future<Response> future =
-        asyncHttpClient.prepareGet(url).execute(
+        _asyncHttpClient.prepareGet(url).execute(
             new AsyncCompletionHandler<Response>() {
               @Override
               public Response onCompleted(Response response) throws Exception {
