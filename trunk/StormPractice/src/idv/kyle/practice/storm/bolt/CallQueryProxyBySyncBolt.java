@@ -45,25 +45,30 @@ public class CallQueryProxyBySyncBolt extends BaseBasicBolt {
     LOG.info("query proxy url : " + url);
     CloseableHttpClient httpclient = HttpClientBuilder.create().build();
     try {
-      HttpGet httpget = new HttpGet(url);
-      HttpResponse response = httpclient.execute(httpget);
-      int status = response.getStatusLine().getStatusCode();
-      LOG.info("Response status : " + status);
-      if (status == HttpStatus.SC_OK) {
-        HttpEntity entity = response.getEntity();
-        String queryProxyResult = EntityUtils.toString(entity);
-        LOG.info("result from query proxy : " + queryProxyResult);
-        JSONObject jsonObj = new JSONObject(queryProxyResult);
-        if ("200".equals(jsonObj.get("status").toString())) {
-          collector.emit(new Values(url, jsonObj.get("status").toString(),
-              jsonObj.get("result").toString(), jsonObj.get("service")
-                  .toString()));
+      int retry = 0;
+      while (retry <= 3) {
+        HttpGet httpget = new HttpGet(url);
+        HttpResponse response = httpclient.execute(httpget);
+        int status = response.getStatusLine().getStatusCode();
+        LOG.info("Response status : " + status);
+        if (status == HttpStatus.SC_OK) {
+          HttpEntity entity = response.getEntity();
+          String queryProxyResult = EntityUtils.toString(entity);
+          LOG.info("result from query proxy : " + queryProxyResult);
+          JSONObject jsonObj = new JSONObject(queryProxyResult);
+          if ("200".equals(jsonObj.get("status").toString())) {
+            collector.emit(new Values(url, jsonObj.get("status").toString(),
+                jsonObj.get("result").toString(), jsonObj.get("service")
+                    .toString()));
+            break;
+          } else {
+            retry++;
+            LOG.warn("result status is not ok. status : "
+                + jsonObj.get("status").toString() + ", retry: " + retry);
+          }
         } else {
-          LOG.warn("result status is not ok. status : "
-              + jsonObj.get("status").toString());
+          LOG.warn("query fail. status : " + status);
         }
-      } else {
-        LOG.warn("query fail. status : " + status);
       }
     } catch (Exception e) {
       e.printStackTrace();

@@ -29,7 +29,7 @@ public class HelloKafkaOffset {
           + response.errorCode(topic, partition));
     }
     long[] offsets = response.offsets(topic, partition);
-    System.out.println("offset: " + offsets[0] + ", offset count: "
+    System.out.println("partion: " + partition + ", offset: " + offsets[0] + ", offset count: "
         + offsets.length);
   }
 
@@ -38,8 +38,10 @@ public class HelloKafkaOffset {
     long whichTime = -1L;
     // long whichTime = kafka.api.OffsetRequest.EarliestTime();
     System.out.println("whichTime: " + whichTime);
-    HelloKafkaOffset.getLastOffset(new SimpleConsumer("10.1.193.226", 6667,
-        100000, 64 * 1024, "leaderLookup"), "topic20", 0, whichTime,
-        "test_client");
+    for (int i = 0; i < 1; i++) {
+      HelloKafkaOffset.getLastOffset(new SimpleConsumer("10.1.193.226", 6667,
+          100000, 64 * 1024, "leaderLookup"), "topic011", i, whichTime,
+          "test_client");
+    }
   }
 }
