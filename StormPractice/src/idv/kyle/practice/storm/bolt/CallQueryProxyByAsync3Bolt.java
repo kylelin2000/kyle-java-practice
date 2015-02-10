@@ -18,12 +18,11 @@ import org.codehaus.jettison.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import backtype.storm.task.OutputCollector;
+import backtype.storm.Constants;
 import backtype.storm.task.TopologyContext;
 import backtype.storm.topology.BasicOutputCollector;
 import backtype.storm.topology.OutputFieldsDeclarer;
 import backtype.storm.topology.base.BaseBasicBolt;
-import backtype.storm.topology.base.BaseRichBolt;
 import backtype.storm.tuple.Fields;
 import backtype.storm.tuple.Tuple;
 import backtype.storm.tuple.Values;
@@ -48,10 +47,19 @@ public class CallQueryProxyByAsync3Bolt extends BaseBasicBolt {
     Utils.sleep(100);
     Thread t = Thread.currentThread();
     LOG.info("Thread name: " + t.getName() + ", Thread id: " + t.getId());
+    if (isTickTuple(tuple)) {
+      LOG.info("skip tick tuple");
+      return;
+    }
     String url = tuple.getString(0);
     LOG.info("query proxy url : " + url);
     sendAsyncGetRequest(url);
     LOG.info("execute finished");
+  }
+
+  private boolean isTickTuple(Tuple tuple) {
+    return tuple.getSourceComponent().equals(Constants.SYSTEM_COMPONENT_ID)
+        && tuple.getSourceStreamId().equals(Constants.SYSTEM_TICK_STREAM_ID);
   }
 
   private void sendAsyncGetRequest(String url) {
@@ -84,9 +92,11 @@ public class CallQueryProxyByAsync3Bolt extends BaseBasicBolt {
               try {
                 JSONObject jsonObj = new JSONObject(inputLine);
                 if ("200".equals(jsonObj.get("status").toString())) {
-                  _collector.emit(new Values(jsonObj.get("status").toString(),
-                      jsonObj.get("result").toString(), jsonObj.get("service")
-                          .toString()));
+                  synchronized (_collector) {
+                    _collector.emit(new Values(
+                        jsonObj.get("status").toString(), jsonObj.get("result")
+                            .toString(), jsonObj.get("service").toString()));
+                  }
                 }
               } catch (Exception e) {
                 throw new RuntimeException(e);
