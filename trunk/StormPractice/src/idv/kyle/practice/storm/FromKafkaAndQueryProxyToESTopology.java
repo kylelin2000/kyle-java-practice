@@ -5,7 +5,6 @@ import backtype.storm.StormSubmitter;
 import backtype.storm.spout.SchemeAsMultiScheme;
 import backtype.storm.topology.TopologyBuilder;
 import idv.kyle.practice.storm.bolt.CallQueryProxyByAsync2Bolt;
-import idv.kyle.practice.storm.bolt.CallQueryProxyByAsync3Bolt;
 import idv.kyle.practice.storm.bolt.CallQueryProxyByAsyncBolt;
 import idv.kyle.practice.storm.bolt.CallQueryProxyBySyncBolt;
 
