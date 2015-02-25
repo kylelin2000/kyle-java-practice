@@ -165,5 +165,16 @@
 				</exclusion>
 			</exclusions>
 		</dependency>
+		<!-- Spark Streaming -->
+		<dependency>
+			<groupId>org.apache.spark</groupId>
+			<artifactId>spark-streaming_2.10</artifactId>
+			<version>1.2.0</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.spark</groupId>
+			<artifactId>spark-streaming-kafka_2.10</artifactId>
+			<version>1.2.0</version>
+		</dependency>
 	</dependencies>
 </project>
