@@ -1,5 +1,8 @@
 package idv.kyle.practice.spark.streaming;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -80,8 +83,22 @@ public class FromKafkaToES {
                     if (statusCode != HttpStatus.SC_OK) {
                       LOG.warn("Method failed: " + method.getStatusLine());
                     }
-                    byte[] responseBody = method.getResponseBody();
-                    String queryProxyResult = new String(responseBody);
+                    InputStream resStream = method.getResponseBodyAsStream();
+                    BufferedReader br =
+                        new BufferedReader(new InputStreamReader(resStream));
+                    StringBuffer resBuffer = new StringBuffer();
+                    try {
+                      String resTemp = "";
+                      while ((resTemp = br.readLine()) != null) {
+                        resBuffer.append(resTemp);
+                      }
+                    } catch (Exception e) {
+                      e.printStackTrace();
+                    } finally {
+                      br.close();
+                    }
+                    String queryProxyResult = resBuffer.toString();
+                    LOG.info("query proxy result: " + queryProxyResult);
                     JSONObject jsonObj = new JSONObject(queryProxyResult);
                     if ("200".equals(jsonObj.get("status").toString())) {
                       Iterator<String> keys = jsonObj.keys();
@@ -90,6 +107,7 @@ public class FromKafkaToES {
                         String valueString = jsonObj.getString(keyValue);
                         resultMap.put(keyValue, valueString);
                       }
+                      return resultMap;
                     } else {
                       retry++;
                       LOG.warn("result status is not ok. status : "
