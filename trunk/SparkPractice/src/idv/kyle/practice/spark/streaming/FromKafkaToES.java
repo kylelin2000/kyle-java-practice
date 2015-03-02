@@ -1,25 +1,25 @@
 package idv.kyle.practice.spark.streaming;
 
-import java.io.IOException;
-import java.net.URL;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.HttpStatus;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.util.EntityUtils;
+import org.apache.commons.httpclient.DefaultHttpMethodRetryHandler;
+import org.apache.commons.httpclient.HttpClient;
+import org.apache.commons.httpclient.HttpStatus;
+import org.apache.commons.httpclient.methods.GetMethod;
+import org.apache.commons.httpclient.params.HttpMethodParams;
 import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.streaming.Duration;
 import org.apache.spark.streaming.api.java.JavaDStream;
 import org.apache.spark.streaming.api.java.JavaPairReceiverInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
+import org.codehaus.jettison.json.JSONArray;
 import org.codehaus.jettison.json.JSONObject;
+import org.elasticsearch.spark.rdd.api.java.JavaEsSpark;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,6 +46,7 @@ public class FromKafkaToES {
 
     SparkConf sparkConf = new SparkConf().setAppName("FromKafkaToES");
     sparkConf.set("es.index.auto.create", "true");
+    sparkConf.set("es.nodes", "sparkvm.localdomain");
     // Create the context with a 1 second batch size
     JavaStreamingContext jssc =
         new JavaStreamingContext(sparkConf, new Duration(2000));
@@ -60,54 +61,61 @@ public class FromKafkaToES {
     JavaPairReceiverInputDStream<String, String> messages =
         KafkaUtils.createStream(jssc, args[0], args[1], topicMap);
 
-    JavaDStream<String> queryResult =
-        messages.map(new Function<Tuple2<String, String>, String>() {
-          @Override
-          public String call(Tuple2<String, String> tuple2) {
-            String url = tuple2._2();
-            ClassLoader classLoader = FromKafkaToES.class.getClassLoader();
-            URL resource = classLoader.getResource("org/apache/http/impl/client/HttpClientBuilder.class");
-            LOG.info(resource.toString());
-            LOG.info("query proxy url : " + url);
-            CloseableHttpClient httpclient = HttpClientBuilder.create().build();
-            try {
-              int retry = 0;
-              while (retry <= 3) {
-                HttpGet httpget = new HttpGet(url);
-                HttpResponse response = httpclient.execute(httpget);
-                int status = response.getStatusLine().getStatusCode();
-                LOG.info("Response status : " + status);
-                if (status == HttpStatus.SC_OK) {
-                  HttpEntity entity = response.getEntity();
-                  String queryProxyResult = EntityUtils.toString(entity);
-                  LOG.info("result from query proxy : " + queryProxyResult);
-                  JSONObject jsonObj = new JSONObject(queryProxyResult);
-                  if ("200".equals(jsonObj.get("status").toString())) {
-                    return jsonObj.toString();
-                  } else {
-                    retry++;
-                    LOG.warn("result status is not ok. status : "
-                        + jsonObj.get("status").toString() + ", retry: "
-                        + retry);
+    JavaDStream<Map<String, String>> queryResult =
+        messages
+            .map(new Function<Tuple2<String, String>, Map<String, String>>() {
+              @Override
+              public Map<String, String> call(Tuple2<String, String> tuple2) {
+                String url = tuple2._2();
+                LOG.info("query proxy url : " + url);
+                HttpClient httpclient = new HttpClient();
+                GetMethod method = new GetMethod(url);
+                method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER,
+                    new DefaultHttpMethodRetryHandler(3, false));
+                Map<String, String> resultMap = new HashMap<String, String>();
+                try {
+                  int retry = 0;
+                  while (retry <= 3) {
+                    int statusCode = httpclient.executeMethod(method);
+                    if (statusCode != HttpStatus.SC_OK) {
+                      LOG.warn("Method failed: " + method.getStatusLine());
+                    }
+                    byte[] responseBody = method.getResponseBody();
+                    String queryProxyResult = new String(responseBody);
+                    JSONObject jsonObj = new JSONObject(queryProxyResult);
+                    if ("200".equals(jsonObj.get("status").toString())) {
+                      Iterator<String> keys = jsonObj.keys();
+                      while (keys.hasNext()) {
+                        String keyValue = (String) keys.next();
+                        String valueString = jsonObj.getString(keyValue);
+                        resultMap.put(keyValue, valueString);
+                      }
+                    } else {
+                      retry++;
+                      LOG.warn("result status is not ok. status : "
+                          + jsonObj.get("status").toString() + ", retry: "
+                          + retry);
+                    }
                   }
-                } else {
-                  LOG.warn("query fail. status : " + status);
+                } catch (Exception e) {
+                  e.printStackTrace();
+                } finally {
+                  method.releaseConnection();
                 }
+                return resultMap;
               }
-            } catch (Exception e) {
-              e.printStackTrace();
-            } finally {
-              try {
-                httpclient.close();
-              } catch (IOException e) {
-                throw new RuntimeException(e);
-              }
-            }
-            return url;
-          }
-        });
+            });
 
-    queryResult.print();
+    queryResult.foreach(new Function<JavaRDD<Map<String, String>>, Void>() {
+      private static final long serialVersionUID = 6272424972267329328L;
+
+      @Override
+      public Void call(JavaRDD<Map<String, String>> rdd) throws Exception {
+        JavaEsSpark.saveToEs(rdd, "spark/doc1");
+        return (Void) null;
+      }
+    });
+
     jssc.start();
     jssc.awaitTermination();
   }
