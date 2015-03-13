@@ -7,8 +7,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
-import kafka.serializer.StringDecoder;
-
 import org.apache.commons.httpclient.DefaultHttpMethodRetryHandler;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpStatus;
@@ -17,7 +15,6 @@ import org.apache.commons.httpclient.params.HttpMethodParams;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.Function;
-import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.streaming.Duration;
 import org.apache.spark.streaming.api.java.JavaDStream;
 import org.apache.spark.streaming.api.java.JavaPairReceiverInputDStream;
@@ -39,9 +36,9 @@ import scala.Tuple2;
  * 
  */
 
-public class FromKafkaToES {
+public class FromKafkaToESAsyncVer {
   private static final Logger LOG = LoggerFactory
-      .getLogger(FromKafkaToES.class);
+      .getLogger(FromKafkaToESAsyncVer.class);
   static String esIndex = null;
 
   public static void main(String[] args) {
@@ -66,20 +63,8 @@ public class FromKafkaToES {
       topicMap.put(topic, numThreads);
     }
 
-    Map<String, String> kafkaParams = new HashMap<String, String>();
-    kafkaParams.put("zookeeper.connect", args[0]);
-    kafkaParams.put("group.id", args[1]);
-    kafkaParams.put("serializer.class", "kafka.serializer.StringEncoder");
-    kafkaParams.put("request.required.acks", "1");
-
-    // kafkaParams.put("metadata.broker.list", "sparkvm.localhost:6667");
-    // kafkaParams.put("auto.commit.interval.ms", "10000");
-    // kafkaParams.put("consumer.timeout.ms", "15000");
-
     JavaPairReceiverInputDStream<String, String> messages =
-        KafkaUtils.createStream(jssc, String.class, String.class,
-            StringDecoder.class, StringDecoder.class, kafkaParams, topicMap,
-            StorageLevel.MEMORY_AND_DISK_SER_2());
+        KafkaUtils.createStream(jssc, args[0], args[1], topicMap);
 
     JavaDStream<Map<String, String>> queryResult =
         messages
