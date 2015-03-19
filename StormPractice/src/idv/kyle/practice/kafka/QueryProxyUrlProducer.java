@@ -41,17 +41,29 @@ public class QueryProxyUrlProducer {
       ProducerConfig config = new ProducerConfig(props);
 
       Producer<String, String> producer = new Producer<String, String>(config);
-      String[] engines = { "VT", "GRID", "APTKB", "CENSUS" };
+      String[] engines = { "VT", "GRID", "APTKB", "CENSUS", "DIG" };
+      String[] urls =
+          {
+              "https://issues.apache.org/jira/browse/SPARK-4062",
+              "https://databricks.com/blog/2014/12/08/pearson-uses-spark-streaming-for-next-generation-adaptive-learning-platform.html",
+              "http://stackoverflow.com/questions/6851909/how-do-i-delete-everything-in-redis" };
       SecureRandom prng = SecureRandom.getInstance("SHA1PRNG");
 
       for (long nEvents = 0; nEvents < events; nEvents++) {
         String randomNum = new Integer(prng.nextInt()).toString();
         MessageDigest sha = MessageDigest.getInstance("SHA-1");
-        byte[] result = sha.digest(randomNum.getBytes());
-        String url =
-            "http://10.1.193.226:9090/v1/"
-                + engines[rnd.nextInt(engines.length)] + "/_tag?q=HASH:"
-                + hexEncode(result) + "&useCache=false";
+        String currentEngine = engines[rnd.nextInt(engines.length)];
+        String url = "";
+        if ("DIG".equals(currentEngine)) {
+          url =
+              "http://10.1.193.226:9090/v1/" + currentEngine + "/_tag?q=URL:"
+                  + urls[rnd.nextInt(urls.length)] + "&useCache=false";
+        } else {
+          byte[] result = sha.digest(randomNum.getBytes());
+          url =
+              "http://10.1.193.226:9090/v1/" + currentEngine + "/_tag?q=HASH:"
+                  + hexEncode(result) + "&useCache=false";
+        }
         KeyedMessage<String, String> data =
             new KeyedMessage<String, String>(args[2], url);
         producer.send(data);

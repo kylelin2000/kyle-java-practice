@@ -27,10 +27,6 @@ public class FromHdfsToES {
     public void map(Object key, Text value, Context context)
         throws IOException, InterruptedException {
       StringTokenizer itr = new StringTokenizer(value.toString());
-      logger.info("kyle test: info");
-      logger.debug("kyle test: debug");
-      logger.warn("kyle test: warn");
-      logger.trace("kyle test: trace");
       while (itr.hasMoreTokens()) {
         word.set(itr.nextToken());
         context.write(word, one);
@@ -44,10 +40,6 @@ public class FromHdfsToES {
 
     public void reduce(Text key, Iterable<IntWritable> values, Context context)
         throws IOException, InterruptedException {
-      logger.info("kyle test: info");
-      logger.debug("kyle test: debug");
-      logger.warn("kyle test: warn");
-      logger.trace("kyle test: trace");
       int sum = 0;
       for (IntWritable val : values) {
         sum += val.get();
