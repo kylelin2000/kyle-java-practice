@@ -11,13 +11,14 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
-import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.util.GenericOptionsParser;
+import org.elasticsearch.hadoop.mr.EsOutputFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class FromHdfsToES {
   static final Logger logger = LoggerFactory.getLogger(FromHdfsToES.class);
+
   public static class TokenizerMapper extends
       Mapper<Object, Text, Text, IntWritable> {
 
@@ -51,13 +52,16 @@ public class FromHdfsToES {
 
   public static void main(String[] args) throws Exception {
     Configuration conf = new Configuration();
-    conf.set("mapreduce.map.log.level", "TRACE");
     String[] otherArgs =
         new GenericOptionsParser(conf, args).getRemainingArgs();
-    if (otherArgs.length != 2) {
-      System.err.println("Usage: wordcount <in> <out>");
+    if (otherArgs.length != 3) {
+      System.err
+          .println("Usage: FromHdfsToES <es_server:port> <index> <hdfs_file_path>");
       System.exit(2);
     }
+    conf.set("es.nodes", otherArgs[0]);
+    conf.set("es.resource", otherArgs[1]);
+
     Job job = new Job(conf, "From HDFS to ES");
     job.setJarByClass(FromHdfsToES.class);
     job.setMapperClass(TokenizerMapper.class);
@@ -65,9 +69,8 @@ public class FromHdfsToES {
     job.setReducerClass(IntSumReducer.class);
     job.setOutputKeyClass(Text.class);
     job.setOutputValueClass(IntWritable.class);
-    FileInputFormat.addInputPath(job, new Path(otherArgs[0]));
-    FileOutputFormat.setOutputPath(job, new Path(otherArgs[1]));
+    job.setOutputFormatClass(EsOutputFormat.class);
+    FileInputFormat.addInputPath(job, new Path(otherArgs[2]));
     System.exit(job.waitForCompletion(true) ? 0 : 1);
   }
 }
-
