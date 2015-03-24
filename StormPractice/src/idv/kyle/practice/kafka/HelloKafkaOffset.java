@@ -25,12 +25,16 @@ public class HelloKafkaOffset {
     OffsetResponse response = consumer.getOffsetsBefore(request);
 
     if (response.hasError()) {
-      System.out.println("Error fetching data Offset Data the Broker. Reason: "
-          + response.errorCode(topic, partition));
+      System.out
+          .println("Error fetching data Offset Data the Broker. ErrorCode: "
+          + response.errorCode(topic, partition) + ", Error:"
+          + response.toString());
     }
     long[] offsets = response.offsets(topic, partition);
-    System.out.println("partion: " + partition + ", offset: " + offsets[0] + ", offset count: "
-        + offsets.length);
+    if (offsets.length > 0) {
+      System.out.println("partion: " + partition + ", offset: " + offsets[0]
+          + ", offset count: " + offsets.length);
+    }
   }
 
   public static void main(String[] args) throws Exception {
@@ -39,7 +43,7 @@ public class HelloKafkaOffset {
     // long whichTime = kafka.api.OffsetRequest.EarliestTime();
     System.out.println("whichTime: " + whichTime);
     for (int i = 0; i < 1; i++) {
-      HelloKafkaOffset.getLastOffset(new SimpleConsumer("10.1.193.226", 6667,
+      HelloKafkaOffset.getLastOffset(new SimpleConsumer("10.1.192.63", 6667,
           100000, 64 * 1024, "leaderLookup"), "tp008", i, whichTime,
           "test_client");
     }

@@ -45,19 +45,25 @@ public class FromKafkaToES {
   static String esIndex = null;
 
   public static void main(String[] args) {
-    if (args.length != 6) {
+    if (args.length != 7) {
       System.err
-          .println("Usage: JavaKafkaWordCount <zkQuorum> <group> <topics> <numThreads> <esNodes> <esIndex>");
+          .println("Usage: JavaKafkaWordCount <zkQuorum> <group> <topics> <numThreads> <esNodes> <esIndex> <WALenabled>");
       System.exit(1);
     }
 
     SparkConf sparkConf = new SparkConf().setAppName("FromKafkaToES");
+    if ("true".equals(args[6])) {
+      sparkConf.set("spark.streaming.receiver.writeAheadLog.enable", "true");
+    }
     sparkConf.set("es.index.auto.create", "true");
     sparkConf.set("es.nodes", args[4]);
     esIndex = args[5];
     // Create the context with a 1 second batch size
     JavaStreamingContext jssc =
         new JavaStreamingContext(sparkConf, new Duration(2000));
+    if ("true".equals(args[6])) {
+      jssc.checkpoint("/tmp/sparkcheckpoint");
+    }
 
     int numThreads = Integer.parseInt(args[3]);
     Map<String, Integer> topicMap = new HashMap<String, Integer>();
@@ -86,8 +92,9 @@ public class FromKafkaToES {
             .map(new Function<Tuple2<String, String>, Map<String, String>>() {
               @Override
               public Map<String, String> call(Tuple2<String, String> tuple2) {
+                String item1 = tuple2._1();
                 String url = tuple2._2();
-                LOG.info("query proxy url : " + url);
+                LOG.info("query proxy url : " + url + ", item1: " + item1);
                 HttpClient httpclient = new HttpClient();
                 GetMethod method = new GetMethod(url);
                 method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER,
