@@ -78,10 +78,6 @@ public class FromKafkaToES {
     kafkaParams.put("serializer.class", "kafka.serializer.StringEncoder");
     kafkaParams.put("request.required.acks", "1");
 
-    // kafkaParams.put("metadata.broker.list", "sparkvm.localhost:6667");
-    // kafkaParams.put("auto.commit.interval.ms", "10000");
-    // kafkaParams.put("consumer.timeout.ms", "15000");
-
     JavaPairReceiverInputDStream<String, String> messages =
         KafkaUtils.createStream(jssc, String.class, String.class,
             StringDecoder.class, StringDecoder.class, kafkaParams, topicMap,

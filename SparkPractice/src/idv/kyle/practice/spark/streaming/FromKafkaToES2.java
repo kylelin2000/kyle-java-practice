@@ -23,13 +23,9 @@ import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.streaming.Duration;
 import org.apache.spark.streaming.api.java.JavaDStream;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
+import org.apache.spark.streaming.api.java.JavaPairReceiverInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
-import org.elasticsearch.action.bulk.BulkRequestBuilder;
-import org.elasticsearch.action.bulk.BulkResponse;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.client.transport.TransportClient;
-import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.spark.rdd.api.java.JavaEsSpark;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -92,9 +88,11 @@ public class FromKafkaToES2 {
         new ArrayList<JavaPairDStream<String, String>>();
     for (int i = 0; i < messageCount; i++) {
       LOG.info("read message from Kafka. i: " + i);
-      streamList.add(KafkaUtils.createStream(jssc, String.class, String.class,
-          StringDecoder.class, StringDecoder.class, kafkaParams, topicMap,
-          StorageLevel.MEMORY_AND_DISK_SER_2()));
+      JavaPairReceiverInputDStream<String, String> message =
+          KafkaUtils.createStream(jssc, String.class, String.class,
+              StringDecoder.class, StringDecoder.class, kafkaParams, topicMap,
+              StorageLevel.MEMORY_AND_DISK_SER_2());
+      streamList.add(message);
     }
 
     JavaPairDStream<String, String> stream =
@@ -109,11 +107,6 @@ public class FromKafkaToES2 {
           public String call(Tuple2<String, String> tuple2) {
             String jsonStr = tuple2._2();
             LOG.info("query proxy jsonStr : " + jsonStr);
-            LOG.error("query proxy jsonStr : " + jsonStr);
-            LOG.warn("query proxy jsonStr : " + jsonStr);
-            LOG.info("query proxy jsonStr : " + jsonStr);
-            LOG.error("query proxy jsonStr : " + jsonStr);
-            LOG.warn("query proxy jsonStr : " + jsonStr);
             return jsonStr;
           }
         });
@@ -140,13 +133,8 @@ public class FromKafkaToES2 {
           method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER,
               new DefaultHttpMethodRetryHandler(3, false));
 
-          Client client =
-              new TransportClient()
-                  .addTransportAddress(new InetSocketTransportAddress(
-                      "sparkvm.localdomain", 9300));
           try {
             String[] idx = esIndex.split("/");
-            BulkRequestBuilder bulkRequest = client.prepareBulk();
             int statusCode = httpclient.executeMethod(method);
             if (statusCode != HttpStatus.SC_OK) {
               LOG.warn("Method failed: " + method.getStatusLine());
@@ -159,8 +147,6 @@ public class FromKafkaToES2 {
               String resTemp = "";
               while ((resTemp = br.readLine()) != null) {
                 LOG.info("result line: " + resTemp);
-                bulkRequest.add(client.prepareIndex(idx[0], idx[1], "1")
-                    .setSource(resTemp));
                 resBuffer.append(resTemp);
               }
             } catch (Exception e) {
@@ -170,16 +156,11 @@ public class FromKafkaToES2 {
             }
             String queryProxyResult = resBuffer.toString();
             LOG.info("queryProxyResult: " + queryProxyResult);
-            BulkResponse bulkResponse = bulkRequest.execute().actionGet();
-            if (bulkResponse.hasFailures()) {
-              LOG.error(bulkResponse.buildFailureMessage());
-            }
             return (Void) null;
           } catch (Exception e) {
             e.printStackTrace();
           } finally {
             method.releaseConnection();
-            client.close();
           }
         }
         return (Void) null;
