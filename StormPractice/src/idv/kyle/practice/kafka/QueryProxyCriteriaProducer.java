@@ -4,6 +4,7 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Properties;
 import java.util.Random;
+import java.util.UUID;
 
 import kafka.javaapi.producer.Producer;
 import kafka.producer.KeyedMessage;
@@ -53,18 +54,20 @@ public class QueryProxyCriteriaProducer {
         String randomNum = new Integer(prng.nextInt()).toString();
         MessageDigest sha = MessageDigest.getInstance("SHA-1");
         String currentEngine = engines[rnd.nextInt(engines.length)];
+        String context = UUID.randomUUID().toString();
         String criteria = "";
         if ("DIG".equals(currentEngine)) {
           criteria =
-              "{\"useCache\":false,\"value\":\""
-                  + urls[rnd.nextInt(urls.length)] + "\",\"service\":\""
-                  + currentEngine + "\",\"type\":\"URL\"}";
+              "{\"useCache\":false,\"context\":\"" + context
+                  + "\",\"value\":\"" + urls[rnd.nextInt(urls.length)]
+                  + "\",\"service\":\"" + currentEngine
+                  + "\",\"type\":\"URL\"}";
         } else {
           byte[] result = sha.digest(randomNum.getBytes());
           criteria =
-              "{\"useCache\":false,\"value\":\"" + hexEncode(result)
-                  + "\",\"service\":\"" + currentEngine
-                  + "\",\"type\":\"HASH\"}";
+              "{\"useCache\":false,\"context\":\"" + context
+                  + "\",\"value\":\"" + hexEncode(result) + "\",\"service\":\""
+                  + currentEngine + "\",\"type\":\"HASH\"}";
         }
         KeyedMessage<String, String> data =
             new KeyedMessage<String, String>(args[2], criteria);

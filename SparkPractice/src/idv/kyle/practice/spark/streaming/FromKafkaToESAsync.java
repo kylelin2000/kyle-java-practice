@@ -8,15 +8,16 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Future;
 
 import kafka.serializer.StringDecoder;
 
-import org.apache.commons.httpclient.DefaultHttpMethodRetryHandler;
-import org.apache.commons.httpclient.HttpClient;
+import com.ning.http.client.AsyncCompletionHandler;
+import com.ning.http.client.AsyncHttpClient;
+import com.ning.http.client.AsyncHttpClientConfig;
+import com.ning.http.client.Response;
+
 import org.apache.commons.httpclient.HttpStatus;
-import org.apache.commons.httpclient.methods.PostMethod;
-import org.apache.commons.httpclient.methods.StringRequestEntity;
-import org.apache.commons.httpclient.params.HttpMethodParams;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.FlatMapFunction;
@@ -43,9 +44,9 @@ import scala.Tuple2;
  * 
  */
 
-public class FromKafkaToES4 {
+public class FromKafkaToESAsync {
   private static final Logger LOG = LoggerFactory
-      .getLogger(FromKafkaToES4.class);
+      .getLogger(FromKafkaToESAsync.class);
   static String esIndex = null;
 
   public static void main(String[] args) {
@@ -123,47 +124,58 @@ public class FromKafkaToES4 {
           public Iterable<String> call(String postBody) {
             LOG.info("query proxy postBody : " + postBody.trim());
 
-            HttpClient httpclient = new HttpClient();
-            PostMethod method =
-                new PostMethod("http://10.1.192.49:9090/v1/_bulk_tag");
+            AsyncHttpClientConfig clientConfig =
+                new AsyncHttpClientConfig.Builder()
+                    .setAllowPoolingConnections(true)
+                    .setMaxConnectionsPerHost(5).setMaxConnections(5).build();
+            AsyncHttpClient asyncHttpClient = new AsyncHttpClient(clientConfig);
+            Future<Response> future =
+                asyncHttpClient
+                    .preparePost("http://10.1.192.49:9090/v1/_bulk_tag")
+                    .setBody(postBody.trim())
+                    .execute(new AsyncCompletionHandler<Response>() {
+                      @Override
+                      public Response onCompleted(Response response)
+                          throws Exception {
+                        return response;
+                      }
+
+                      @Override
+                      public void onThrowable(Throwable t) {
+                        t.printStackTrace();
+                      }
+                    });
 
             try {
-              StringRequestEntity requestEntity =
-                  new StringRequestEntity(postBody.trim(), "application/json",
-                      "UTF-8");
-              method.setRequestEntity(requestEntity);
-              method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER,
-                  new DefaultHttpMethodRetryHandler(3, false));
-
-              int statusCode = httpclient.executeMethod(method);
-              LOG.info("query proxy response code: " + statusCode);
-              if (statusCode != HttpStatus.SC_OK) {
-                LOG.warn("Method failed: " + method.getStatusLine());
-              }
-              InputStream resStream = method.getResponseBodyAsStream();
-              BufferedReader br =
-                  new BufferedReader(new InputStreamReader(resStream));
-              StringBuffer resBuffer = new StringBuffer();
-              List<String> results = new ArrayList<String>();
-              try {
-                String resTemp = "";
-                while ((resTemp = br.readLine()) != null) {
-                  LOG.info("query proxy result line: " + resTemp);
-                  results.add(resTemp);
-                  resBuffer.append(resTemp);
+              Response response = future.get();
+              int status = response.getStatusCode();
+              LOG.info("query proxy response status : " + status);
+              if (status == HttpStatus.SC_OK) {
+                InputStream resStream = response.getResponseBodyAsStream();
+                BufferedReader br =
+                    new BufferedReader(new InputStreamReader(resStream));
+                StringBuffer resBuffer = new StringBuffer();
+                List<String> results = new ArrayList<String>();
+                try {
+                  String resTemp = "";
+                  while ((resTemp = br.readLine()) != null) {
+                    LOG.info("query proxy result line: " + resTemp);
+                    results.add(resTemp);
+                    resBuffer.append(resTemp);
+                  }
+                } catch (Exception e) {
+                  e.printStackTrace();
+                } finally {
+                  br.close();
                 }
-              } catch (Exception e) {
-                e.printStackTrace();
-              } finally {
-                br.close();
+                String queryProxyResult = resBuffer.toString();
+                LOG.info("query proxy result: " + queryProxyResult);
+                return results;
+              } else {
+                LOG.warn("query fail. status : " + status);
               }
-              String queryProxyResult = resBuffer.toString();
-              LOG.info("query proxy result: " + queryProxyResult);
-              return results;
             } catch (Exception e) {
-              e.printStackTrace();
-            } finally {
-              method.releaseConnection();
+              throw new RuntimeException(e);
             }
             LOG.info("should not run here");
             return new ArrayList<String>();
@@ -209,7 +221,7 @@ public class FromKafkaToES4 {
         List<Map<String, String>> collect = rdd.collect();
         LOG.info("collect size: " + collect.size());
         if (collect.size() > 1) {
-          for(Map<String, String> map : collect){
+          for (Map<String, String> map : collect) {
             if (map.size() > 0) {
               LOG.info("ES index: " + esIndex);
               JavaEsSpark.saveToEs(rdd, esIndex);
