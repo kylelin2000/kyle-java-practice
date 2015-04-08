@@ -2,7 +2,6 @@ package idv.kyle.practice.spark.streaming;
 
 import java.io.BufferedReader;
 import java.io.FileInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
@@ -50,6 +49,7 @@ public class FromKafkaToESAsync {
   private static final Logger LOG = LoggerFactory
       .getLogger(FromKafkaToESAsync.class);
   static String esIndex = null;
+  static String queryProxyUrl = "";
 
   public static void main(String[] args) throws Exception {
     if (args.length != 1) {
@@ -76,13 +76,14 @@ public class FromKafkaToESAsync {
       esNodes = prop.getProperty("es.nodes");
       esIndex = prop.getProperty("es.index");
       walEnabled = prop.getProperty("spark.WAL.enabled");
+      queryProxyUrl = prop.getProperty("queryproxy.url.batch");
     } finally {
       if (input != null) {
-          input.close();
+        input.close();
       }
     }
 
-    SparkConf sparkConf = new SparkConf().setAppName("FromKafkaToES");
+    SparkConf sparkConf = new SparkConf().setAppName("FromKafkaToES-Async");
     if ("true".equals(walEnabled)) {
       sparkConf.set("spark.streaming.receiver.writeAheadLog.enable", "true");
     }
@@ -154,8 +155,7 @@ public class FromKafkaToESAsync {
                     .setMaxConnectionsPerHost(2).setMaxConnections(2).build();
             AsyncHttpClient asyncHttpClient = new AsyncHttpClient(clientConfig);
             Future<Response> future =
-                asyncHttpClient
-                    .preparePost("http://10.1.192.49:9090/v1/_bulk_tag")
+                asyncHttpClient.preparePost(queryProxyUrl)
                     .setBody(postBody.trim())
                     .execute(new AsyncCompletionHandler<Response>() {
                       @Override

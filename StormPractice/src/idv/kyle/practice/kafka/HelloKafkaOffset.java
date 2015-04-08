@@ -44,7 +44,7 @@ public class HelloKafkaOffset {
     System.out.println("whichTime: " + whichTime);
     for (int i = 0; i < 1; i++) {
       HelloKafkaOffset.getLastOffset(new SimpleConsumer("10.1.192.63", 6667,
-          100000, 64 * 1024, "leaderLookup"), "tp008", i, whichTime,
+          100000, 64 * 1024, "leaderLookup"), "tp011", i, whichTime,
           "test_client");
     }
   }

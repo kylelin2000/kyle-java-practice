@@ -1,6 +1,7 @@
 package idv.kyle.practice.spark.streaming;
 
 import java.io.BufferedReader;
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
@@ -8,6 +9,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 import kafka.serializer.StringDecoder;
 
@@ -38,47 +40,70 @@ import scala.Tuple2;
 /**
  * Usage: ./bin/spark-submit --class
  * idv.kyle.practice.spark.streaming.JavaKafkaWordCount
- * /root/StormPractice-0.0.1-jar-with-dependencies.jar localhost:2181
- * kafka-spark-1 tp001 1
+ * /root/StormPractice-0.0.1-jar-with-dependencies.jar config.properties
  * 
  */
 
-public class FromKafkaToES4 {
+public class FromKafkaToESSync {
   private static final Logger LOG = LoggerFactory
-      .getLogger(FromKafkaToES4.class);
+      .getLogger(FromKafkaToESSync.class);
   static String esIndex = null;
+  static String queryProxyUrl = "";
 
-  public static void main(String[] args) {
-    if (args.length != 7) {
-      System.err
-          .println("Usage: JavaKafkaWordCount <zkQuorum> <group> <topics> <numThreads> <esNodes> <esIndex> <WALenabled>");
+  public static void main(String[] args) throws Exception {
+    if (args.length != 1) {
+      System.err.println("Usage: JavaKafkaWordCount <config_file_path>");
       System.exit(1);
     }
 
-    SparkConf sparkConf = new SparkConf().setAppName("FromKafkaToES");
-    if ("true".equals(args[6])) {
+    String esNodes = "";
+    String threadNumber = "";
+    String kafkaTopics = "";
+    String zkHosts = "";
+    String kafkaGroup = "";
+    String walEnabled = "";
+
+    Properties prop = new Properties();
+    InputStream input = null;
+    try {
+      input = new FileInputStream(args[0]);
+      prop.load(input);
+      zkHosts = prop.getProperty("zookeeper.host");
+      kafkaGroup = prop.getProperty("kafka.group");
+      kafkaTopics = prop.getProperty("kafka.topics");
+      threadNumber = prop.getProperty("spark.kafka.thread.num");
+      esNodes = prop.getProperty("es.nodes");
+      esIndex = prop.getProperty("es.index");
+      walEnabled = prop.getProperty("spark.WAL.enabled");
+      queryProxyUrl = prop.getProperty("queryproxy.url.batch");
+    } finally {
+      if (input != null) {
+        input.close();
+      }
+    }
+
+    SparkConf sparkConf = new SparkConf().setAppName("FromKafkaToES-Sync");
+    if ("true".equals(walEnabled)) {
       sparkConf.set("spark.streaming.receiver.writeAheadLog.enable", "true");
     }
     sparkConf.set("es.index.auto.create", "true");
-    sparkConf.set("es.nodes", args[4]);
-    esIndex = args[5];
-    // Create the context with a 1 second batch size
+    sparkConf.set("es.nodes", esNodes);
     JavaStreamingContext jssc =
         new JavaStreamingContext(sparkConf, new Duration(2000));
-    if ("true".equals(args[6])) {
+    if ("true".equals(walEnabled)) {
       jssc.checkpoint("/tmp/sparkcheckpoint");
     }
 
-    int numThreads = Integer.parseInt(args[3]);
+    int numThreads = Integer.parseInt(threadNumber);
     Map<String, Integer> topicMap = new HashMap<String, Integer>();
-    String[] topics = args[2].split(",");
+    String[] topics = kafkaTopics.split(",");
     for (String topic : topics) {
       topicMap.put(topic, numThreads);
     }
 
     Map<String, String> kafkaParams = new HashMap<String, String>();
-    kafkaParams.put("zookeeper.connect", args[0]);
-    kafkaParams.put("group.id", args[1]);
+    kafkaParams.put("zookeeper.connect", zkHosts);
+    kafkaParams.put("group.id", kafkaGroup);
     kafkaParams.put("serializer.class", "kafka.serializer.StringEncoder");
     kafkaParams.put("request.required.acks", "1");
 
@@ -124,8 +149,7 @@ public class FromKafkaToES4 {
             LOG.info("query proxy postBody : " + postBody.trim());
 
             HttpClient httpclient = new HttpClient();
-            PostMethod method =
-                new PostMethod("http://10.1.192.49:9090/v1/_bulk_tag");
+            PostMethod method = new PostMethod(queryProxyUrl);
 
             try {
               StringRequestEntity requestEntity =
@@ -209,7 +233,7 @@ public class FromKafkaToES4 {
         List<Map<String, String>> collect = rdd.collect();
         LOG.info("collect size: " + collect.size());
         if (collect.size() > 1) {
-          for(Map<String, String> map : collect){
+          for (Map<String, String> map : collect) {
             if (map.size() > 0) {
               LOG.info("ES index: " + esIndex);
               JavaEsSpark.saveToEs(rdd, esIndex);
