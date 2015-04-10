@@ -3,8 +3,10 @@ package idv.kyle.practice.spark.streaming;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -16,6 +18,14 @@ import java.util.concurrent.Future;
 import kafka.serializer.StringDecoder;
 
 import org.apache.commons.httpclient.HttpStatus;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.StatusLine;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.protocol.HttpClientContext;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
+import org.apache.http.impl.nio.client.HttpAsyncClients;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.FlatMapFunction;
@@ -27,12 +37,6 @@ import org.apache.spark.streaming.api.java.JavaDStream;
 import org.apache.spark.streaming.api.java.JavaPairReceiverInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
-import org.asynchttpclient.AsyncHttpClient;
-import org.asynchttpclient.AsyncHttpClientConfig;
-import org.asynchttpclient.AsyncCompletionHandler;
-import org.asynchttpclient.Response;
-import org.asynchttpclient.extras.registry.AsyncHttpClientFactory;
-import org.asynchttpclient.providers.netty4.NettyAsyncHttpProviderConfig;
 import org.codehaus.jettison.json.JSONObject;
 import org.elasticsearch.spark.rdd.api.java.JavaEsSpark;
 import org.slf4j.Logger;
@@ -47,9 +51,9 @@ import scala.Tuple2;
  * 
  */
 
-public class FromKafkaToESAsync {
+public class FromKafkaToESAsync2 {
   private static final Logger LOG = LoggerFactory
-      .getLogger(FromKafkaToESAsync.class);
+      .getLogger(FromKafkaToESAsync2.class);
   static String esIndex = null;
   static String queryProxyUrl = "";
 
@@ -159,67 +163,62 @@ public class FromKafkaToESAsync {
             LOG.info("query proxy url: " + queryProxyUrl + ", postBody: "
                 + postBody.trim());
 
-            NettyAsyncHttpProviderConfig providerConfig =
-                new NettyAsyncHttpProviderConfig();
-            AsyncHttpClientConfig clientConfig =
-                new AsyncHttpClientConfig.Builder()
-                    .setAllowPoolingConnections(true)
-                    .setAsyncHttpClientProviderConfig(providerConfig)
-                    .setMaxConnectionsPerHost(2).setMaxConnections(2).build();
-            AsyncHttpClient asyncHttpClient =
-                AsyncHttpClientFactory.getAsyncHttpClient(clientConfig);
-            Future<Response> future =
-                asyncHttpClient
-                    .preparePost("http://10.1.192.49:9090/v1/_bulk_tag")
-                    .setBody(postBody.trim())
-                    .execute(new AsyncCompletionHandler<Response>() {
-                      @Override
-                      public Response onCompleted(Response response)
-                          throws Exception {
-                        return response;
-                      }
+            List<String> results = new ArrayList<String>();
 
-                      @Override
-                      public void onThrowable(Throwable t) {
-                        t.printStackTrace();
-                      }
-                    });
-
+            ClassLoader classLoader = this.getClass().getClassLoader();
+            URL resource =
+                classLoader
+                    .getResource("org/apache/http/impl/nio/codecs/DefaultHttpRequestWriterFactory.class");
+            System.out.println("resource ======> " + resource);
+            CloseableHttpAsyncClient httpclient =
+                HttpAsyncClients.createDefault();
             try {
-              Response response = future.get();
-              int status = response.getStatusCode();
+              httpclient.start();
+              HttpPost request =
+                  new HttpPost("http://10.1.192.49:9090/v1/_bulk_tag");
+              StringEntity params = new StringEntity(postBody.trim());
+              request.setEntity(params);
+              Future<HttpResponse> future = httpclient.execute(request, null);
+              HttpResponse response = future.get();
+              StatusLine status = response.getStatusLine();
               LOG.info("query proxy response status : " + status);
-              if (status == HttpStatus.SC_OK) {
-                InputStream resStream = response.getResponseBodyAsStream();
-                BufferedReader br =
-                    new BufferedReader(new InputStreamReader(resStream));
-                StringBuffer resBuffer = new StringBuffer();
-                List<String> results = new ArrayList<String>();
-                try {
-                  String resTemp = "";
-                  while ((resTemp = br.readLine()) != null) {
-                    LOG.info("query proxy result line: " + resTemp);
-                    results.add(resTemp);
-                    resBuffer.append(resTemp);
+              if (status.getStatusCode() == HttpStatus.SC_OK) {
+                HttpEntity responseEntity = response.getEntity();
+                if (responseEntity != null) {
+                  BufferedReader br =
+                      new BufferedReader(new InputStreamReader(responseEntity
+                          .getContent()));
+                  StringBuffer resBuffer = new StringBuffer();
+                  try {
+                    String resTemp = "";
+                    while ((resTemp = br.readLine()) != null) {
+                      LOG.info("query proxy result line: " + resTemp);
+                      results.add(resTemp);
+                      resBuffer.append(resTemp);
+                    }
+                  } catch (Exception e) {
+                    e.printStackTrace();
+                  } finally {
+                    br.close();
                   }
-                } catch (Exception e) {
-                  e.printStackTrace();
-                } finally {
-                  br.close();
+                  String queryProxyResult = resBuffer.toString();
+                  LOG.info("query proxy result: " + queryProxyResult);
+                  return results;
                 }
-                String queryProxyResult = resBuffer.toString();
-                LOG.info("query proxy result: " + queryProxyResult);
-                return results;
               } else {
                 LOG.warn("query fail. status : " + status);
               }
             } catch (Exception e) {
-              throw new RuntimeException(e);
+              e.printStackTrace();
             } finally {
-              asyncHttpClient.close();
+              try {
+                httpclient.close();
+              } catch (IOException e) {
+                e.printStackTrace();
+              }
             }
-            LOG.info("should not run here");
-            return new ArrayList<String>();
+
+            return results;
           }
         });
 

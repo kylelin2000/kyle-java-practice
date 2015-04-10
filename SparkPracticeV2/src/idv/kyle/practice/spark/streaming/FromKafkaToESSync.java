@@ -1,7 +1,6 @@
 package idv.kyle.practice.spark.streaming;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -11,11 +10,15 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.Future;
 
 import kafka.serializer.StringDecoder;
 
+import org.apache.commons.httpclient.DefaultHttpMethodRetryHandler;
+import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpStatus;
+import org.apache.commons.httpclient.methods.PostMethod;
+import org.apache.commons.httpclient.methods.StringRequestEntity;
+import org.apache.commons.httpclient.params.HttpMethodParams;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.FlatMapFunction;
@@ -27,12 +30,6 @@ import org.apache.spark.streaming.api.java.JavaDStream;
 import org.apache.spark.streaming.api.java.JavaPairReceiverInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
-import org.asynchttpclient.AsyncHttpClient;
-import org.asynchttpclient.AsyncHttpClientConfig;
-import org.asynchttpclient.AsyncCompletionHandler;
-import org.asynchttpclient.Response;
-import org.asynchttpclient.extras.registry.AsyncHttpClientFactory;
-import org.asynchttpclient.providers.netty4.NettyAsyncHttpProviderConfig;
 import org.codehaus.jettison.json.JSONObject;
 import org.elasticsearch.spark.rdd.api.java.JavaEsSpark;
 import org.slf4j.Logger;
@@ -47,9 +44,9 @@ import scala.Tuple2;
  * 
  */
 
-public class FromKafkaToESAsync {
+public class FromKafkaToESSync {
   private static final Logger LOG = LoggerFactory
-      .getLogger(FromKafkaToESAsync.class);
+      .getLogger(FromKafkaToESSync.class);
   static String esIndex = null;
   static String queryProxyUrl = "";
 
@@ -69,12 +66,7 @@ public class FromKafkaToESAsync {
     Properties prop = new Properties();
     InputStream input = null;
     try {
-      File file = new File(args[0]);
-      LOG.info("read property file: " + file.getPath());
-      if (!file.exists()) {
-        LOG.error("file not found: " + file.getPath());
-      }
-      input = new FileInputStream(file);
+      input = new FileInputStream(args[0]);
       prop.load(input);
       zkHosts = prop.getProperty("zookeeper.host");
       kafkaGroup = prop.getProperty("kafka.group");
@@ -90,9 +82,7 @@ public class FromKafkaToESAsync {
       }
     }
 
-    LOG.info("query proxy url: " + queryProxyUrl);
-
-    SparkConf sparkConf = new SparkConf().setAppName("FromKafkaToES-Async");
+    SparkConf sparkConf = new SparkConf().setAppName("FromKafkaToES-Sync");
     if ("true".equals(walEnabled)) {
       sparkConf.set("spark.streaming.receiver.writeAheadLog.enable", "true");
     }
@@ -148,7 +138,7 @@ public class FromKafkaToESAsync {
           public String call(String str1, String str2) {
             return str1.substring(0, str1.lastIndexOf(str2));
           }
-        }, new Duration(2000), new Duration(2000));
+        }, new Duration(10000), new Duration(10000));
 
     JavaDStream<String> queryResults =
         streams.flatMap(new FlatMapFunction<String, String>() {
@@ -156,72 +146,55 @@ public class FromKafkaToESAsync {
 
           @Override
           public Iterable<String> call(String postBody) {
-            LOG.info("query proxy url: " + queryProxyUrl + ", postBody: "
-                + postBody.trim());
+            LOG.info("query proxy postBody : " + postBody.trim());
 
-            NettyAsyncHttpProviderConfig providerConfig =
-                new NettyAsyncHttpProviderConfig();
-            AsyncHttpClientConfig clientConfig =
-                new AsyncHttpClientConfig.Builder()
-                    .setAllowPoolingConnections(true)
-                    .setAsyncHttpClientProviderConfig(providerConfig)
-                    .setMaxConnectionsPerHost(2).setMaxConnections(2).build();
-            AsyncHttpClient asyncHttpClient =
-                AsyncHttpClientFactory.getAsyncHttpClient(clientConfig);
-            Future<Response> future =
-                asyncHttpClient
-                    .preparePost("http://10.1.192.49:9090/v1/_bulk_tag")
-                    .setBody(postBody.trim())
-                    .execute(new AsyncCompletionHandler<Response>() {
-                      @Override
-                      public Response onCompleted(Response response)
-                          throws Exception {
-                        return response;
-                      }
-
-                      @Override
-                      public void onThrowable(Throwable t) {
-                        t.printStackTrace();
-                      }
-                    });
+            HttpClient httpclient = new HttpClient();
+            PostMethod method = new PostMethod(queryProxyUrl);
 
             try {
-              Response response = future.get();
-              int status = response.getStatusCode();
-              LOG.info("query proxy response status : " + status);
-              if (status == HttpStatus.SC_OK) {
-                InputStream resStream = response.getResponseBodyAsStream();
-                BufferedReader br =
-                    new BufferedReader(new InputStreamReader(resStream));
-                StringBuffer resBuffer = new StringBuffer();
-                List<String> results = new ArrayList<String>();
-                try {
-                  String resTemp = "";
-                  while ((resTemp = br.readLine()) != null) {
-                    LOG.info("query proxy result line: " + resTemp);
-                    results.add(resTemp);
-                    resBuffer.append(resTemp);
-                  }
-                } catch (Exception e) {
-                  e.printStackTrace();
-                } finally {
-                  br.close();
-                }
-                String queryProxyResult = resBuffer.toString();
-                LOG.info("query proxy result: " + queryProxyResult);
-                return results;
-              } else {
-                LOG.warn("query fail. status : " + status);
+              StringRequestEntity requestEntity =
+                  new StringRequestEntity(postBody.trim(), "application/json",
+                      "UTF-8");
+              method.setRequestEntity(requestEntity);
+              method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER,
+                  new DefaultHttpMethodRetryHandler(3, false));
+
+              int statusCode = httpclient.executeMethod(method);
+              LOG.info("query proxy response code: " + statusCode);
+              if (statusCode != HttpStatus.SC_OK) {
+                LOG.warn("Method failed: " + method.getStatusLine());
               }
+              InputStream resStream = method.getResponseBodyAsStream();
+              BufferedReader br =
+                  new BufferedReader(new InputStreamReader(resStream));
+              StringBuffer resBuffer = new StringBuffer();
+              List<String> results = new ArrayList<String>();
+              try {
+                String resTemp = "";
+                while ((resTemp = br.readLine()) != null) {
+                  LOG.info("query proxy result line: " + resTemp);
+                  results.add(resTemp);
+                  resBuffer.append(resTemp);
+                }
+              } catch (Exception e) {
+                e.printStackTrace();
+              } finally {
+                br.close();
+              }
+              String queryProxyResult = resBuffer.toString();
+              LOG.info("query proxy result: " + queryProxyResult);
+              return results;
             } catch (Exception e) {
-              throw new RuntimeException(e);
+              e.printStackTrace();
             } finally {
-              asyncHttpClient.close();
+              method.releaseConnection();
             }
             LOG.info("should not run here");
             return new ArrayList<String>();
           }
         });
+
+    queryResults.print();
 
     JavaDStream<Map<String, String>> queryResult =
         queryResults.map(new Function<String, Map<String, String>>() {
