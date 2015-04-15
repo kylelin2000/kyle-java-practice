@@ -2,8 +2,10 @@ package idv.kyle.practice.spark.streaming;
 
 import java.io.BufferedReader;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -13,12 +15,12 @@ import java.util.Properties;
 
 import kafka.serializer.StringDecoder;
 
-import org.apache.commons.httpclient.DefaultHttpMethodRetryHandler;
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.HttpStatus;
-import org.apache.commons.httpclient.methods.PostMethod;
-import org.apache.commons.httpclient.methods.StringRequestEntity;
-import org.apache.commons.httpclient.params.HttpMethodParams;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.HttpStatus;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.FlatMapFunction;
@@ -147,50 +149,56 @@ public class FromKafkaToESSync {
           @Override
           public Iterable<String> call(String postBody) {
             LOG.info("query proxy postBody : " + postBody.trim());
+            List<String> results = new ArrayList<String>();
 
-            HttpClient httpclient = new HttpClient();
-            PostMethod method = new PostMethod(queryProxyUrl);
-
+            ClassLoader classLoader = this.getClass().getClassLoader();
+            URL resource =
+                classLoader
+                    .getResource("org/apache/http/message/BasicLineFormatter.class");
+            System.out.println("resource ======> " + resource);
+            CloseableHttpClient httpclient = HttpClientBuilder.create().build();
             try {
-              StringRequestEntity requestEntity =
-                  new StringRequestEntity(postBody.trim(), "application/json",
-                      "UTF-8");
-              method.setRequestEntity(requestEntity);
-              method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER,
-                  new DefaultHttpMethodRetryHandler(3, false));
-
-              int statusCode = httpclient.executeMethod(method);
-              LOG.info("query proxy response code: " + statusCode);
-              if (statusCode != HttpStatus.SC_OK) {
-                LOG.warn("Method failed: " + method.getStatusLine());
-              }
-              InputStream resStream = method.getResponseBodyAsStream();
-              BufferedReader br =
-                  new BufferedReader(new InputStreamReader(resStream));
-              StringBuffer resBuffer = new StringBuffer();
-              List<String> results = new ArrayList<String>();
-              try {
-                String resTemp = "";
-                while ((resTemp = br.readLine()) != null) {
-                  LOG.info("query proxy result line: " + resTemp);
-                  results.add(resTemp);
-                  resBuffer.append(resTemp);
+              HttpPost httppost = new HttpPost(postBody.trim());
+              HttpResponse response = httpclient.execute(httppost);
+              int status = response.getStatusLine().getStatusCode();
+              LOG.info("Response status : " + status);
+              if (status == HttpStatus.SC_OK) {
+                HttpEntity responseEntity = response.getEntity();
+                if (responseEntity != null) {
+                  BufferedReader br =
+                      new BufferedReader(new InputStreamReader(responseEntity
+                          .getContent()));
+                  StringBuffer resBuffer = new StringBuffer();
+                  try {
+                    String resTemp = "";
+                    while ((resTemp = br.readLine()) != null) {
+                      LOG.info("query proxy result line: " + resTemp);
+                      results.add(resTemp);
+                      resBuffer.append(resTemp);
+                    }
+                  } catch (Exception e) {
+                    e.printStackTrace();
+                  } finally {
+                    br.close();
+                  }
+                  String queryProxyResult = resBuffer.toString();
+                  LOG.info("query proxy result: " + queryProxyResult);
+                  return results;
                 }
-              } catch (Exception e) {
-                e.printStackTrace();
-              } finally {
-                br.close();
+              } else {
+                LOG.warn("query fail. status : " + status);
               }
-              String queryProxyResult = resBuffer.toString();
-              LOG.info("query proxy result: " + queryProxyResult);
-              return results;
             } catch (Exception e) {
               e.printStackTrace();
             } finally {
-              method.releaseConnection();
+              try {
+                httpclient.close();
+              } catch (IOException e) {
+                throw new RuntimeException(e);
+              }
             }
             LOG.info("should not run here");
-            return new ArrayList<String>();
+            return results;
           }
         });
 

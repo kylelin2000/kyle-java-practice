@@ -1,7 +1,7 @@
 package idv.kyle.practice.spark.streaming;
 
 import java.io.BufferedReader;
-import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
@@ -19,6 +19,9 @@ import org.apache.commons.httpclient.HttpStatus;
 import org.apache.commons.httpclient.methods.PostMethod;
 import org.apache.commons.httpclient.methods.StringRequestEntity;
 import org.apache.commons.httpclient.params.HttpMethodParams;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.FlatMapFunction;
@@ -48,7 +51,7 @@ public class FromKafkaToESSync {
   private static final Logger LOG = LoggerFactory
       .getLogger(FromKafkaToESSync.class);
   static String esIndex = null;
-  static String queryProxyUrl = "";
+  static String propertiesFileName = "sparkPractice.properties";
 
   public static void main(String[] args) throws Exception {
     if (args.length != 1) {
@@ -64,23 +67,18 @@ public class FromKafkaToESSync {
     String walEnabled = "";
 
     Properties prop = new Properties();
-    InputStream input = null;
-    try {
-      input = new FileInputStream(args[0]);
-      prop.load(input);
-      zkHosts = prop.getProperty("zookeeper.host");
-      kafkaGroup = prop.getProperty("kafka.group");
-      kafkaTopics = prop.getProperty("kafka.topics");
-      threadNumber = prop.getProperty("spark.kafka.thread.num");
-      esNodes = prop.getProperty("es.nodes");
-      esIndex = prop.getProperty("es.index");
-      walEnabled = prop.getProperty("spark.WAL.enabled");
-      queryProxyUrl = prop.getProperty("queryproxy.url.batch");
-    } finally {
-      if (input != null) {
-        input.close();
-      }
-    }
+    Path pt = new Path(args[0]);
+    FileSystem fs = FileSystem.get(new Configuration());
+    prop.load(new InputStreamReader(fs.open(pt)));
+    zkHosts = prop.getProperty("zookeeper.host");
+    kafkaGroup = prop.getProperty("kafka.group");
+    kafkaTopics = prop.getProperty("kafka.topics");
+    threadNumber = prop.getProperty("spark.kafka.thread.num");
+    esNodes = prop.getProperty("es.nodes");
+    esIndex = prop.getProperty("es.index");
+    walEnabled = prop.getProperty("spark.WAL.enabled");
+    
+    LOG.info("read properties: zkHosts=" + zkHosts + ", kafkaTopics=" + kafkaTopics + ", esIndex=" + esIndex);
 
     SparkConf sparkConf = new SparkConf().setAppName("FromKafkaToES-Sync");
     if ("true".equals(walEnabled)) {
@@ -147,6 +145,15 @@ public class FromKafkaToESSync {
           @Override
           public Iterable<String> call(String postBody) {
             LOG.info("query proxy postBody : " + postBody.trim());
+            Properties prop = new Properties();
+            Path pt = new Path(propertiesFileName);
+            try {
+              FileSystem fs = FileSystem.get(new Configuration());
+              prop.load(new InputStreamReader(fs.open(pt)));
+            } catch (IOException e1) {
+              e1.printStackTrace();
+            }
+            String queryProxyUrl = prop.getProperty("queryproxy.url.batch");
 
             HttpClient httpclient = new HttpClient();
             PostMethod method = new PostMethod(queryProxyUrl);

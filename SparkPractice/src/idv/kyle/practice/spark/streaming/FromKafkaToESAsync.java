@@ -1,8 +1,7 @@
 package idv.kyle.practice.spark.streaming;
 
 import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
@@ -16,6 +15,9 @@ import java.util.concurrent.Future;
 import kafka.serializer.StringDecoder;
 
 import org.apache.commons.httpclient.HttpStatus;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.FlatMapFunction;
@@ -51,7 +53,7 @@ public class FromKafkaToESAsync {
   private static final Logger LOG = LoggerFactory
       .getLogger(FromKafkaToESAsync.class);
   static String esIndex = null;
-  static String queryProxyUrl = "";
+  static String propertiesFileName = "sparkPractice.properties";
 
   public static void main(String[] args) throws Exception {
     if (args.length != 1) {
@@ -67,30 +69,19 @@ public class FromKafkaToESAsync {
     String walEnabled = "";
 
     Properties prop = new Properties();
-    InputStream input = null;
-    try {
-      File file = new File(args[0]);
-      LOG.info("read property file: " + file.getPath());
-      if (!file.exists()) {
-        LOG.error("file not found: " + file.getPath());
-      }
-      input = new FileInputStream(file);
-      prop.load(input);
-      zkHosts = prop.getProperty("zookeeper.host");
-      kafkaGroup = prop.getProperty("kafka.group");
-      kafkaTopics = prop.getProperty("kafka.topics");
-      threadNumber = prop.getProperty("spark.kafka.thread.num");
-      esNodes = prop.getProperty("es.nodes");
-      esIndex = prop.getProperty("es.index");
-      walEnabled = prop.getProperty("spark.WAL.enabled");
-      queryProxyUrl = prop.getProperty("queryproxy.url.batch");
-    } finally {
-      if (input != null) {
-        input.close();
-      }
-    }
+    Path pt = new Path(args[0]);
+    FileSystem fs = FileSystem.get(new Configuration());
+    prop.load(new InputStreamReader(fs.open(pt)));
+    zkHosts = prop.getProperty("zookeeper.host");
+    kafkaGroup = prop.getProperty("kafka.group");
+    kafkaTopics = prop.getProperty("kafka.topics");
+    threadNumber = prop.getProperty("spark.kafka.thread.num");
+    esNodes = prop.getProperty("es.nodes");
+    esIndex = prop.getProperty("es.index");
+    walEnabled = prop.getProperty("spark.WAL.enabled");
 
-    LOG.info("query proxy url: " + queryProxyUrl);
+    LOG.info("read properties: zkHosts=" + zkHosts + ", kafkaTopics="
+        + kafkaTopics + ", esIndex=" + esIndex);
 
     SparkConf sparkConf = new SparkConf().setAppName("FromKafkaToES-Async");
     if ("true".equals(walEnabled)) {
@@ -156,8 +147,16 @@ public class FromKafkaToESAsync {
 
           @Override
           public Iterable<String> call(String postBody) {
-            LOG.info("query proxy url: " + queryProxyUrl + ", postBody: "
-                + postBody.trim());
+            LOG.info("query proxy postBody : " + postBody.trim());
+            Properties prop = new Properties();
+            Path pt = new Path(propertiesFileName);
+            try {
+              FileSystem fs = FileSystem.get(new Configuration());
+              prop.load(new InputStreamReader(fs.open(pt)));
+            } catch (IOException e1) {
+              e1.printStackTrace();
+            }
+            String queryProxyUrl = prop.getProperty("queryproxy.url.batch");
 
             NettyAsyncHttpProviderConfig providerConfig =
                 new NettyAsyncHttpProviderConfig();
@@ -169,8 +168,7 @@ public class FromKafkaToESAsync {
             AsyncHttpClient asyncHttpClient =
                 AsyncHttpClientFactory.getAsyncHttpClient(clientConfig);
             Future<Response> future =
-                asyncHttpClient
-                    .preparePost("http://10.1.192.49:9090/v1/_bulk_tag")
+                asyncHttpClient.preparePost(queryProxyUrl)
                     .setBody(postBody.trim())
                     .execute(new AsyncCompletionHandler<Response>() {
                       @Override

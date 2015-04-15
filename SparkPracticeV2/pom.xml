@@ -60,11 +60,27 @@
 			<artifactId>httpclient</artifactId>
 			<version>4.3.5</version>
 		</dependency>
+		<dependency>
+			<groupId>org.apache.httpcomponents</groupId>
+			<artifactId>httpcore</artifactId>
+			<version>4.3.3</version>
+		</dependency>
 		<!-- Spark Streaming -->
 		<dependency>
 			<groupId>org.apache.spark</groupId>
 			<artifactId>spark-streaming_2.10</artifactId>
 			<version>1.1.0</version>
+			<exclusions>
+				<exclusion>
+					<groupId>net.java.dev.jets3t</groupId>
+					<artifactId>jets3t</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>net.java.dev.jets3t</groupId>
+			<artifactId>jets3t</artifactId>
+			<version>0.9.0</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.spark</groupId>
@@ -82,6 +98,16 @@
 			<groupId>org.elasticsearch</groupId>
 			<artifactId>elasticsearch-hadoop</artifactId>
 			<version>2.1.0.Beta3</version>
+			<exclusions>
+				<exclusion>
+					<groupId>org.apache.hive</groupId>
+					<artifactId>hive-service</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.apache.pig</groupId>
+					<artifactId>pig</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 	</dependencies>
 </project>
