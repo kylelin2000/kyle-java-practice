@@ -77,7 +77,6 @@ public class FromKafkaToES2 {
     kafkaParams.put("zookeeper.connect", args[0]);
     kafkaParams.put("group.id", args[1]);
     kafkaParams.put("serializer.class", "kafka.serializer.StringEncoder");
-    kafkaParams.put("request.required.acks", "1");
 
     // kafkaParams.put("metadata.broker.list", "sparkvm.localhost:6667");
     // kafkaParams.put("auto.commit.interval.ms", "10000");

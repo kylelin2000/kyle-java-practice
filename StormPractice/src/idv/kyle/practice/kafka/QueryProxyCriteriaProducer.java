@@ -37,7 +37,6 @@ public class QueryProxyCriteriaProducer {
       props.put("serializer.class", "kafka.serializer.StringEncoder");
       props.put("partitioner.class",
           "idv.kyle.practice.kafka.SimplePartitioner");
-      props.put("request.required.acks", "1");
 
       ProducerConfig config = new ProducerConfig(props);
 

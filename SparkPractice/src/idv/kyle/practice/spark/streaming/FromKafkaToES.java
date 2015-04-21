@@ -76,7 +76,6 @@ public class FromKafkaToES {
     kafkaParams.put("zookeeper.connect", args[0]);
     kafkaParams.put("group.id", args[1]);
     kafkaParams.put("serializer.class", "kafka.serializer.StringEncoder");
-    kafkaParams.put("request.required.acks", "1");
 
     JavaPairReceiverInputDStream<String, String> messages =
         KafkaUtils.createStream(jssc, String.class, String.class,

@@ -56,11 +56,6 @@ public class FromKafkaToESAsync {
   static String propertiesFileName = "sparkPractice.properties";
 
   public static void main(String[] args) throws Exception {
-    if (args.length != 1) {
-      System.err.println("Usage: JavaKafkaWordCount <config_file_path>");
-      System.exit(1);
-    }
-
     String esNodes = "";
     String threadNumber = "";
     String kafkaTopics = "";
@@ -69,7 +64,7 @@ public class FromKafkaToESAsync {
     String walEnabled = "";
 
     Properties prop = new Properties();
-    Path pt = new Path(args[0]);
+    Path pt = new Path(propertiesFileName);
     FileSystem fs = FileSystem.get(new Configuration());
     prop.load(new InputStreamReader(fs.open(pt)));
     zkHosts = prop.getProperty("zookeeper.host");
@@ -106,7 +101,6 @@ public class FromKafkaToESAsync {
     kafkaParams.put("zookeeper.connect", zkHosts);
     kafkaParams.put("group.id", kafkaGroup);
     kafkaParams.put("serializer.class", "kafka.serializer.StringEncoder");
-    kafkaParams.put("request.required.acks", "1");
 
     JavaPairReceiverInputDStream<String, String> messages =
         KafkaUtils.createStream(jssc, String.class, String.class,
