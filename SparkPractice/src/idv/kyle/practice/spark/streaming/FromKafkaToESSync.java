@@ -4,7 +4,9 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -60,6 +62,7 @@ public class FromKafkaToESSync {
     String zkHosts = "";
     String kafkaGroup = "";
     String walEnabled = "";
+    String reqAcks = "0";
 
     Properties prop = new Properties();
     Path pt = new Path(propertiesFileName);
@@ -72,6 +75,7 @@ public class FromKafkaToESSync {
     esNodes = prop.getProperty("es.nodes");
     esIndex = prop.getProperty("es.index");
     walEnabled = prop.getProperty("spark.WAL.enabled");
+    reqAcks = prop.getProperty("kafka.request.required.acks");
     
     LOG.info("read properties: zkHosts=" + zkHosts + ", kafkaTopics=" + kafkaTopics + ", esIndex=" + esIndex);
 
@@ -98,6 +102,7 @@ public class FromKafkaToESSync {
     kafkaParams.put("zookeeper.connect", zkHosts);
     kafkaParams.put("group.id", kafkaGroup);
     kafkaParams.put("serializer.class", "kafka.serializer.StringEncoder");
+    kafkaParams.put("request.required.acks", reqAcks);
 
     JavaPairReceiverInputDStream<String, String> messages =
         KafkaUtils.createStream(jssc, String.class, String.class,
@@ -137,8 +142,7 @@ public class FromKafkaToESSync {
           private static final long serialVersionUID = 6272424972267329328L;
 
           @Override
-          public Iterable<String> call(String postBody) {
-            LOG.info("query proxy postBody : " + postBody.trim());
+          public Iterable<String> call(String inputMessage) {
             Properties prop = new Properties();
             Path pt = new Path(propertiesFileName);
             try {
@@ -153,8 +157,18 @@ public class FromKafkaToESSync {
             PostMethod method = new PostMethod(queryProxyUrl);
 
             try {
+              String[] lines = inputMessage.trim().split("\n");
+              StringBuffer postBody = new StringBuffer();
+              for (String line : lines) {
+                JSONObject jsonObj = new JSONObject(line);
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+                String context = jsonObj.get("context") + ", spark read from kafka at " + sdf.format(new Date());
+                jsonObj.put("context", context);
+                postBody.append("\n" + jsonObj.toString());
+              }
               StringRequestEntity requestEntity =
-                  new StringRequestEntity(postBody.trim(), "application/json",
+                  new StringRequestEntity(postBody.toString().trim(),
+                      "application/json",
                       "UTF-8");
               method.setRequestEntity(requestEntity);
               method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER,
@@ -195,8 +209,6 @@ public class FromKafkaToESSync {
           }
         });
 
-    queryResults.print();
-
     JavaDStream<Map<String, String>> queryResult =
         queryResults.map(new Function<String, Map<String, String>>() {
           @Override
@@ -208,6 +220,8 @@ public class FromKafkaToESSync {
               try {
                 JSONObject jsonObj = new JSONObject(result);
                 if ("200".equals(jsonObj.get("status").toString())) {
+                  SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+                  jsonObj.append("returnTimeFromQueryProxy", sdf.format(new Date()));
                   Iterator<String> keys = jsonObj.keys();
                   while (keys.hasNext()) {
                     String keyValue = (String) keys.next();

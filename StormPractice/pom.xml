@@ -136,11 +136,6 @@
 		</dependency>
 		<!-- Storm Kafka -->
 		<dependency>
-			<groupId>org.apache.kafka</groupId>
-			<artifactId>kafka_2.10</artifactId>
-			<version>0.8.2-beta</version>
-		</dependency>
-		<dependency>
 			<groupId>org.apache.storm</groupId>
 			<artifactId>storm-kafka</artifactId>
 			<version>0.9.3</version>
