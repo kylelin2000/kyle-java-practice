@@ -32,9 +32,11 @@ import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.streaming.Duration;
 import org.apache.spark.streaming.api.java.JavaDStream;
+import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaPairReceiverInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
+import org.codehaus.jettison.json.JSONException;
 import org.codehaus.jettison.json.JSONObject;
 import org.elasticsearch.spark.rdd.api.java.JavaEsSpark;
 import org.slf4j.Logger;
@@ -63,6 +65,9 @@ public class FromKafkaToESSync {
     String kafkaGroup = "";
     String walEnabled = "";
     String reqAcks = "0";
+    int batchDuration = 2000;
+    int windowDuration = 2000;
+    int slideDuration = 2000;
 
     Properties prop = new Properties();
     Path pt = new Path(propertiesFileName);
@@ -76,6 +81,11 @@ public class FromKafkaToESSync {
     esIndex = prop.getProperty("es.index");
     walEnabled = prop.getProperty("spark.WAL.enabled");
     reqAcks = prop.getProperty("kafka.request.required.acks");
+    batchDuration = Integer.parseInt(prop.getProperty("spark.stream.batch.duration.ms"));
+    windowDuration =
+        Integer.parseInt(prop.getProperty("spark.stream.window.duration.ms"));
+    slideDuration =
+        Integer.parseInt(prop.getProperty("spark.stream.slide.duration.ms"));
     
     LOG.info("read properties: zkHosts=" + zkHosts + ", kafkaTopics=" + kafkaTopics + ", esIndex=" + esIndex);
 
@@ -85,8 +95,10 @@ public class FromKafkaToESSync {
     }
     sparkConf.set("es.index.auto.create", "true");
     sparkConf.set("es.nodes", esNodes);
+    sparkConf.set("spark.locality.wait", "500");
+    sparkConf.set("spark.streaming.blockInterval", "1000");
     JavaStreamingContext jssc =
-        new JavaStreamingContext(sparkConf, new Duration(2000));
+        new JavaStreamingContext(sparkConf, new Duration(batchDuration));
     if ("true".equals(walEnabled)) {
       jssc.checkpoint("/tmp/sparkcheckpoint");
     }
@@ -104,13 +116,27 @@ public class FromKafkaToESSync {
     kafkaParams.put("serializer.class", "kafka.serializer.StringEncoder");
     kafkaParams.put("request.required.acks", reqAcks);
 
+    int numStreams = 3;
+    List<JavaPairDStream<String, String>> kafkaStreams =
+        new ArrayList<JavaPairDStream<String, String>>(numStreams);
+    for (int i = 0; i < numStreams; i++) {
+      kafkaStreams.add(KafkaUtils.createStream(jssc, String.class,
+          String.class, StringDecoder.class, StringDecoder.class, kafkaParams,
+          topicMap, StorageLevel.MEMORY_AND_DISK_SER_2()));
+    }
+    JavaPairDStream<String, String> unifiedStream =
+        jssc.union(kafkaStreams.get(0),
+            kafkaStreams.subList(1, kafkaStreams.size()));
+
+    /*
     JavaPairReceiverInputDStream<String, String> messages =
         KafkaUtils.createStream(jssc, String.class, String.class,
             StringDecoder.class, StringDecoder.class, kafkaParams, topicMap,
             StorageLevel.MEMORY_AND_DISK_SER_2());
+    */
 
     JavaDStream<String> lines =
-        messages.map(new Function<Tuple2<String, String>, String>() {
+        unifiedStream.map(new Function<Tuple2<String, String>, String>() {
           private static final long serialVersionUID = 1L;
 
           @Override
@@ -135,7 +161,7 @@ public class FromKafkaToESSync {
           public String call(String str1, String str2) {
             return str1.substring(0, str1.lastIndexOf(str2));
           }
-        }, new Duration(10000), new Duration(10000));
+        }, new Duration(windowDuration), new Duration(slideDuration));
 
     JavaDStream<String> queryResults =
         streams.flatMap(new FlatMapFunction<String, String>() {
@@ -158,47 +184,56 @@ public class FromKafkaToESSync {
 
             try {
               String[] lines = inputMessage.trim().split("\n");
-              StringBuffer postBody = new StringBuffer();
+              StringBuffer requestContent = new StringBuffer();
+              LOG.info("use POST to send " + lines.length + " query request to query proxy");
               for (String line : lines) {
-                JSONObject jsonObj = new JSONObject(line);
-                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
-                String context = jsonObj.get("context") + ", spark read from kafka at " + sdf.format(new Date());
-                jsonObj.put("context", context);
-                postBody.append("\n" + jsonObj.toString());
-              }
-              StringRequestEntity requestEntity =
-                  new StringRequestEntity(postBody.toString().trim(),
-                      "application/json",
-                      "UTF-8");
-              method.setRequestEntity(requestEntity);
-              method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER,
-                  new DefaultHttpMethodRetryHandler(3, false));
-
-              int statusCode = httpclient.executeMethod(method);
-              LOG.info("query proxy response code: " + statusCode);
-              if (statusCode != HttpStatus.SC_OK) {
-                LOG.warn("Method failed: " + method.getStatusLine());
-              }
-              InputStream resStream = method.getResponseBodyAsStream();
-              BufferedReader br =
-                  new BufferedReader(new InputStreamReader(resStream));
-              StringBuffer resBuffer = new StringBuffer();
-              List<String> results = new ArrayList<String>();
-              try {
-                String resTemp = "";
-                while ((resTemp = br.readLine()) != null) {
-                  LOG.info("query proxy result line: " + resTemp);
-                  results.add(resTemp);
-                  resBuffer.append(resTemp);
+                try {
+                  JSONObject jsonObj = new JSONObject(line);
+                  SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+                  String context =
+                      jsonObj.get("context") + ", spark read from kafka at "
+                          + sdf.format(new Date());
+                  jsonObj.put("context", context);
+                  requestContent.append("\n" + jsonObj.toString());
+                } catch (JSONException jsonex) {
+                  LOG.warn("Not send request to query proxy. Not a valid json string: " + line);
                 }
-              } catch (Exception e) {
-                e.printStackTrace();
-              } finally {
-                br.close();
               }
-              String queryProxyResult = resBuffer.toString();
-              LOG.info("query proxy result: " + queryProxyResult);
-              return results;
+              String postBody = requestContent.toString().trim();
+              if (!"".equals(postBody) || !postBody.isEmpty()) {
+                StringRequestEntity requestEntity =
+                    new StringRequestEntity(postBody, "application/json",
+                        "UTF-8");
+                method.setRequestEntity(requestEntity);
+                method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER,
+                    new DefaultHttpMethodRetryHandler(3, false));
+
+                int statusCode = httpclient.executeMethod(method);
+                LOG.info("query proxy response code: " + statusCode);
+                if (statusCode != HttpStatus.SC_OK) {
+                  LOG.warn("Method failed: " + method.getStatusLine());
+                }
+                InputStream resStream = method.getResponseBodyAsStream();
+                BufferedReader br =
+                    new BufferedReader(new InputStreamReader(resStream));
+                StringBuffer resBuffer = new StringBuffer();
+                List<String> results = new ArrayList<String>();
+                try {
+                  String resTemp = "";
+                  while ((resTemp = br.readLine()) != null) {
+                    LOG.info("query proxy result line: " + resTemp);
+                    results.add(resTemp);
+                    resBuffer.append(resTemp);
+                  }
+                } catch (Exception e) {
+                  e.printStackTrace();
+                } finally {
+                  br.close();
+                }
+                String queryProxyResult = resBuffer.toString();
+                LOG.info("query proxy result: " + queryProxyResult);
+                return results;
+              }
             } catch (Exception e) {
               e.printStackTrace();
             } finally {
