@@ -120,7 +120,7 @@
 			<artifactId>spark-streaming-kafka_2.10</artifactId>
 			<version>1.1.0</version>
 		</dependency>
-		<!-- Add Json package for spark 1.1.1 version -->
+		<!-- Add Json package for spark 1.1.0 version -->
 		<dependency>
 			<groupId>org.codehaus.jettison</groupId>
 			<artifactId>jettison</artifactId>
