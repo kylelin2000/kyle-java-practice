@@ -8,10 +8,12 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 import kafka.serializer.StringDecoder;
 
@@ -29,10 +31,9 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.Function2;
-import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.streaming.Duration;
 import org.apache.spark.streaming.api.java.JavaDStream;
-import org.apache.spark.streaming.api.java.JavaPairReceiverInputDStream;
+import org.apache.spark.streaming.api.java.JavaPairInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.codehaus.jettison.json.JSONException;
@@ -50,9 +51,9 @@ import scala.Tuple2;
  * 
  */
 
-public class FromKafkaToESSyncReduce {
+public class FromKafkaToESSyncReduce13 {
   private static final Logger LOG = LoggerFactory
-      .getLogger(FromKafkaToESSyncReduce.class);
+      .getLogger(FromKafkaToESSyncReduce13.class);
   static String propertiesFileName = "sparkPractice.properties";
 
   public static void main(String[] args) throws Exception {
@@ -65,6 +66,7 @@ public class FromKafkaToESSyncReduce {
     String kafkaGroup = prop.getProperty("kafka.group");
     String kafkaTopics = prop.getProperty("kafka.topics");
     String threadNumber = prop.getProperty("spark.kafka.thread.num");
+    String brokerList = prop.getProperty("kafka.metadata.broker.list");
     final String esIndex = prop.getProperty("es.index");
     String esNodes = prop.getProperty("es.nodes");
     String checkpointEnabled = prop.getProperty("spark.checkpoint.enabled");
@@ -75,38 +77,27 @@ public class FromKafkaToESSyncReduce {
     
     LOG.info("read properties: zkHosts=" + zkHosts + ", kafkaTopics=" + kafkaTopics + ", esIndex=" + esIndex);
 
-    SparkConf sparkConf = new SparkConf().setAppName("FromKafkaToES-Sync11");
+    SparkConf sparkConf = new SparkConf().setAppName("FromKafkaToES-Sync13");
     sparkConf.set("es.index.auto.create", "true");
     sparkConf.set("es.nodes", esNodes);
-    sparkConf.set("spark.streaming.receiver.writeAheadLog.enable", "true");
     LOG.info("es.index.auto.create set to "
         + sparkConf.get("es.index.auto.create") + ", batchDuration is "
         + batchDuration);
     JavaStreamingContext jssc =
         new JavaStreamingContext(sparkConf, new Duration(batchDuration));
 
-    if ("true".equals(checkpointEnabled)) {
-      LOG.info("enable checkpoint to directory " + checkpointDirectory);
-      jssc.checkpoint(checkpointDirectory);
-    }
-
-    int numThreads = Integer.parseInt(threadNumber);
-    Map<String, Integer> topicMap = new HashMap<String, Integer>();
+    Set<String> topicSet = new HashSet<String>();
     String[] topics = kafkaTopics.split(",");
     for (String topic : topics) {
-      topicMap.put(topic, numThreads);
+      topicSet.add(topic);
     }
 
     Map<String, String> kafkaParams = new HashMap<String, String>();
-    kafkaParams.put("zookeeper.connect", zkHosts);
-    kafkaParams.put("group.id", kafkaGroup);
-    kafkaParams.put("serializer.class", "kafka.serializer.StringEncoder");
-    kafkaParams.put("request.required.acks", reqAcks);
+    kafkaParams.put("metadata.broker.list", brokerList);
 
-    JavaPairReceiverInputDStream<String, String> messages =
-        KafkaUtils.createStream(jssc, String.class, String.class,
-            StringDecoder.class, StringDecoder.class, kafkaParams, topicMap,
-            StorageLevel.MEMORY_AND_DISK_SER_2());
+    JavaPairInputDStream<String, String> messages =
+        KafkaUtils.createDirectStream(jssc, String.class, String.class,
+            StringDecoder.class, StringDecoder.class, kafkaParams, topicSet);
 
     JavaDStream<String> lines =
         messages.map(new Function<Tuple2<String, String>, String>() {

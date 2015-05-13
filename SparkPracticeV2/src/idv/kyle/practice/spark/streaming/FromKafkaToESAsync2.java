@@ -100,6 +100,7 @@ public class FromKafkaToESAsync2 {
       sparkConf.set("spark.streaming.receiver.writeAheadLog.enable", "true");
     }
     sparkConf.set("es.index.auto.create", "true");
+    // sparkConf.get("spark.yarn.user.classpath.first", "true");
     sparkConf.set("es.nodes", esNodes);
     JavaStreamingContext jssc =
         new JavaStreamingContext(sparkConf, new Duration(2000));
@@ -173,7 +174,7 @@ public class FromKafkaToESAsync2 {
             try {
               httpclient.start();
               HttpPost request =
-                  new HttpPost("http://10.1.192.49:9090/v1/_bulk_tag");
+                  new HttpPost("http://10.1.193.226:9090/v1/_bulk_tag");
               StringEntity params = new StringEntity(postBody.trim());
               request.setEntity(params);
               Future<HttpResponse> future = httpclient.execute(request, null);

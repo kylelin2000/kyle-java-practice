@@ -88,7 +88,7 @@ public class FromKafkaToESSyncReduce12 {
             @Override
             public JavaStreamingContext create() {
               SparkConf sparkConf =
-                  new SparkConf().setAppName("FromKafkaToES-Sync");
+                  new SparkConf().setAppName("FromKafkaToES-Sync12");
               sparkConf.set("es.index.auto.create", "true");
               sparkConf.set("es.nodes", esNodes);
               sparkConf.set("spark.streaming.receiver.writeAheadLog.enable",
@@ -111,7 +111,6 @@ public class FromKafkaToESSyncReduce12 {
       SparkConf sparkConf = new SparkConf().setAppName("FromKafkaToES-Sync");
       sparkConf.set("es.index.auto.create", "true");
       sparkConf.set("es.nodes", esNodes);
-      sparkConf.set("spark.streaming.receiver.writeAheadLog.enable", "true");
       LOG.info("es.index.auto.create set to "
           + sparkConf.get("es.index.auto.create") + ", batchDuration is "
           + batchDuration);
@@ -139,7 +138,7 @@ public class FromKafkaToESSyncReduce12 {
     JavaPairReceiverInputDStream<String, String> messages =
         KafkaUtils.createStream(jssc, String.class, String.class,
             StringDecoder.class, StringDecoder.class, kafkaParams, topicMap,
-            StorageLevel.MEMORY_AND_DISK_SER_2());
+            StorageLevel.MEMORY_AND_DISK_SER());
 
     JavaDStream<String> lines =
         messages.map(new Function<Tuple2<String, String>, String>() {
