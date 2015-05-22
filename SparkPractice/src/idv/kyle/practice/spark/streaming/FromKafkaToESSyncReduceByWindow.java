@@ -51,11 +51,10 @@ import scala.Tuple2;
  * 
  */
 
-public class FromKafkaToESSync {
+public class FromKafkaToESSyncReduceByWindow {
   private static final Logger LOG = LoggerFactory
-      .getLogger(FromKafkaToESSync.class);
+      .getLogger(FromKafkaToESSyncReduceByWindow.class);
   static String esIndex = null;
-  static String propertiesFileName = "sparkPractice.properties";
 
   public static void main(String[] args) throws Exception {
     String esNodes = "";
@@ -70,7 +69,7 @@ public class FromKafkaToESSync {
     int slideDuration = 2000;
 
     Properties prop = new Properties();
-    Path pt = new Path(propertiesFileName);
+    Path pt = new Path(ConstantUtil.propertiesFileName);
     FileSystem fs = FileSystem.get(new Configuration());
     prop.load(new InputStreamReader(fs.open(pt)));
     zkHosts = prop.getProperty("zookeeper.host");
@@ -170,7 +169,7 @@ public class FromKafkaToESSync {
           @Override
           public Iterable<String> call(String inputMessage) {
             Properties prop = new Properties();
-            Path pt = new Path(propertiesFileName);
+            Path pt = new Path(ConstantUtil.propertiesFileName);
             try {
               FileSystem fs = FileSystem.get(new Configuration());
               prop.load(new InputStreamReader(fs.open(pt)));

@@ -53,7 +53,6 @@ public class FromKafkaToESAsync {
   private static final Logger LOG = LoggerFactory
       .getLogger(FromKafkaToESAsync.class);
   static String esIndex = null;
-  static String propertiesFileName = "sparkPractice.properties";
 
   public static void main(String[] args) throws Exception {
     String esNodes = "";
@@ -64,7 +63,7 @@ public class FromKafkaToESAsync {
     String walEnabled = "";
 
     Properties prop = new Properties();
-    Path pt = new Path(propertiesFileName);
+    Path pt = new Path(ConstantUtil.propertiesFileName);
     FileSystem fs = FileSystem.get(new Configuration());
     prop.load(new InputStreamReader(fs.open(pt)));
     zkHosts = prop.getProperty("zookeeper.host");
@@ -143,7 +142,7 @@ public class FromKafkaToESAsync {
           public Iterable<String> call(String postBody) {
             LOG.info("query proxy postBody : " + postBody.trim());
             Properties prop = new Properties();
-            Path pt = new Path(propertiesFileName);
+            Path pt = new Path(ConstantUtil.propertiesFileName);
             try {
               FileSystem fs = FileSystem.get(new Configuration());
               prop.load(new InputStreamReader(fs.open(pt)));

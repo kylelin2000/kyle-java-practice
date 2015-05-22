@@ -53,11 +53,10 @@ import scala.Tuple2;
 public class FromKafkaToESSyncReduce {
   private static final Logger LOG = LoggerFactory
       .getLogger(FromKafkaToESSyncReduce.class);
-  static String propertiesFileName = "sparkPractice.properties";
 
   public static void main(String[] args) throws Exception {
     Properties prop = new Properties();
-    Path pt = new Path(propertiesFileName);
+    Path pt = new Path(ConstantUtil.propertiesFileName);
     FileSystem fs = FileSystem.get(new Configuration());
     prop.load(new InputStreamReader(fs.open(pt)));
 
@@ -136,7 +135,7 @@ public class FromKafkaToESSyncReduce {
           @Override
           public Iterable<String> call(String inputMessage) {
             Properties prop = new Properties();
-            Path pt = new Path(propertiesFileName);
+            Path pt = new Path(ConstantUtil.propertiesFileName);
             try {
               FileSystem fs = FileSystem.get(new Configuration());
               prop.load(new InputStreamReader(fs.open(pt)));

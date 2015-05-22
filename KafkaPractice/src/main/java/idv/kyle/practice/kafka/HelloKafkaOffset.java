@@ -42,9 +42,9 @@ public class HelloKafkaOffset {
     long whichTime = -1L;
     // long whichTime = kafka.api.OffsetRequest.EarliestTime();
     System.out.println("whichTime: " + whichTime);
-    for (int i = 0; i < 1; i++) {
-      HelloKafkaOffset.getLastOffset(new SimpleConsumer("10.1.192.63", 6667,
-          100000, 64 * 1024, "leaderLookup"), "tp011", i, whichTime,
+    for (int i = 0; i < 7; i++) {
+      HelloKafkaOffset.getLastOffset(new SimpleConsumer("10.1.193.226", 6667,
+          100000, 64 * 1024, "leaderLookup"), "tp_07", i, whichTime,
           "test_client");
     }
   }
