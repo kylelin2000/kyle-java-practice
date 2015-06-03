@@ -62,7 +62,6 @@ public class FromKafkaToESSyncReduceByWindow {
     String kafkaTopics = "";
     String zkHosts = "";
     String kafkaGroup = "";
-    String walEnabled = "";
     String reqAcks = "0";
     int batchDuration = 2000;
     int windowDuration = 2000;
@@ -78,7 +77,6 @@ public class FromKafkaToESSyncReduceByWindow {
     threadNumber = prop.getProperty("spark.kafka.thread.num");
     esNodes = prop.getProperty("es.nodes");
     esIndex = prop.getProperty("es.index");
-    walEnabled = prop.getProperty("spark.WAL.enabled");
     reqAcks = prop.getProperty("kafka.request.required.acks");
     batchDuration = Integer.parseInt(prop.getProperty("spark.stream.batch.duration.ms"));
     windowDuration =
@@ -89,18 +87,12 @@ public class FromKafkaToESSyncReduceByWindow {
     LOG.info("read properties: zkHosts=" + zkHosts + ", kafkaTopics=" + kafkaTopics + ", esIndex=" + esIndex);
 
     SparkConf sparkConf = new SparkConf().setAppName("FromKafkaToES-Sync");
-    if ("true".equals(walEnabled)) {
-      sparkConf.set("spark.streaming.receiver.writeAheadLog.enable", "true");
-    }
     sparkConf.set("es.index.auto.create", "true");
     sparkConf.set("es.nodes", esNodes);
     sparkConf.set("spark.locality.wait", "500");
     sparkConf.set("spark.streaming.blockInterval", "1000");
     JavaStreamingContext jssc =
         new JavaStreamingContext(sparkConf, new Duration(batchDuration));
-    if ("true".equals(walEnabled)) {
-      jssc.checkpoint("/tmp/sparkcheckpoint");
-    }
 
     int numThreads = Integer.parseInt(threadNumber);
     Map<String, Integer> topicMap = new HashMap<String, Integer>();
