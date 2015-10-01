@@ -1,21 +1,29 @@
 package idv.kyle.practice.kafka;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import kafka.producer.Partitioner;
 import kafka.utils.VerifiableProperties;
 
 public class SimplePartitioner implements Partitioner {
-  public SimplePartitioner(VerifiableProperties props) {
+    private static final Logger LOG = LoggerFactory.getLogger(SimplePartitioner.class);
 
-  }
+    private AtomicInteger counter = new AtomicInteger(0);
 
-  public int partition(Object key, int a_numPartitions) {
-    int partition = 0;
-    String stringKey = (String) key;
-    int offset = stringKey.lastIndexOf('.');
-    if (offset > 0) {
-      partition =
-          Integer.parseInt(stringKey.substring(offset + 1)) % a_numPartitions;
+    public SimplePartitioner(VerifiableProperties props) {
+	LOG.info("call partitioner");
     }
-    return partition;
-  }
+
+    public int partition(Object key, int a_numPartitions) {
+	LOG.info("key: " + key + ", num of partition: " + a_numPartitions);
+	int partition = counter.incrementAndGet() % a_numPartitions;
+	if (counter.get() > 10) {
+	    counter.set(0);
+	}
+	LOG.info("use partition: " + partition);
+	return partition;
+    }
 }
